@@ -21,7 +21,7 @@ export function AuthForm({ mode, action }: { mode: "login" | "registro"; action:
           <span className="text-[var(--gold)]">26</span>
         </div>
         <div className="font-display mt-3 text-sm tracking-[0.3em] text-[var(--gold)]">
-          RAMIREZ · RUBIO · ESPINOZA
+          RAMIREZ · RUBIO · ESPINOSA
         </div>
         <p className="mt-3 text-sm text-[var(--muted)]">
           {mode === "login"

@@ -1,6 +1,6 @@
 import { prisma } from "./prisma";
 
-export type PlayerGroup = { team: string; players: string[] };
+export type PlayerGroup = { team: string; flagCode: string; players: string[] };
 
 /** Opciones para los selects de premios, agrupadas por selección. */
 export async function getAwardOptions() {
@@ -10,16 +10,16 @@ export async function getAwardOptions() {
   });
 
   const group = (filter: (pos: string) => boolean): PlayerGroup[] => {
-    const byTeam = new Map<string, string[]>();
+    const byTeam = new Map<string, { flagCode: string; players: string[] }>();
     for (const p of players) {
       if (!filter(p.position)) continue;
-      const list = byTeam.get(p.team.name) ?? [];
-      list.push(p.name);
-      byTeam.set(p.team.name, list);
+      const entry = byTeam.get(p.team.name) ?? { flagCode: p.team.flagCode, players: [] };
+      entry.players.push(p.name);
+      byTeam.set(p.team.name, entry);
     }
     return [...byTeam.entries()]
       .sort((a, b) => a[0].localeCompare(b[0], "es"))
-      .map(([team, list]) => ({ team, players: list }));
+      .map(([team, { flagCode, players: list }]) => ({ team, flagCode, players: list }));
   };
 
   return {

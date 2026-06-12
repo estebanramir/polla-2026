@@ -17,8 +17,8 @@ const archivo = Archivo({
 });
 
 export const metadata: Metadata = {
-  title: "La Polla del Mundial Ramirez Rubio Espinoza",
-  description: "Predicciones del Mundial 2026 — Ramirez · Rubio · Espinoza",
+  title: "La Polla del Mundial Ramirez Rubio Espinosa",
+  description: "Predicciones del Mundial 2026 — Ramirez · Rubio · Espinosa",
 };
 
 export default async function RootLayout({
@@ -40,7 +40,7 @@ export default async function RootLayout({
                 <span className="text-[var(--gold)]">26</span>
               </span>
               <span className="mt-0.5 block text-[10px] tracking-[0.25em] text-[var(--gold)]">
-                RAMIREZ · RUBIO · ESPINOZA
+                RAMIREZ · RUBIO · ESPINOSA
               </span>
             </Link>
             {user && (
@@ -76,7 +76,7 @@ export default async function RootLayout({
         </header>
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">{children}</main>
         <footer className="border-t border-[var(--line)] py-6 text-center text-xs text-[var(--muted)]">
-          La Polla del Mundial Ramirez Rubio Espinoza · Exacto 5 pts · Ganador 2 pts · Goleador y arquero 10 pts
+          La Polla del Mundial Ramirez Rubio Espinosa · Exacto 5 pts · Ganador 2 pts · Goleador y arquero 10 pts
         </footer>
       </body>
     </html>
