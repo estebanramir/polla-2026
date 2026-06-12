@@ -1,26 +1,182 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --bg: #0a1410;
+  --bg-card: #101e18;
+  --bg-card-hover: #142620;
+  --line: #1d342a;
+  --grass: #2fe07c;
+  --grass-dim: #1a9e57;
+  --gold: #f2c14e;
+  --cream: #f4f1e8;
+  --muted: #7a9486;
+  --danger: #e05555;
+  --font-display: var(--font-anton), sans-serif;
+  --font-body: var(--font-archivo), sans-serif;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg);
+  color: var(--cream);
+  font-family: var(--font-body);
+  /* césped nocturno: franjas verticales sutiles como un campo de juego */
+  background-image:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0,
+      transparent 120px,
+      rgba(47, 224, 124, 0.025) 120px,
+      rgba(47, 224, 124, 0.025) 240px
+    ),
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(47, 224, 124, 0.12), transparent);
+  background-attachment: fixed;
+}
+
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: 0.02em;
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.card-hover:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--grass-dim);
+}
+
+.score-input {
+  width: 3rem;
+  height: 2.75rem;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--cream);
+  transition: border-color 0.15s;
+}
+
+.score-input:focus {
+  outline: none;
+  border-color: var(--grass);
+}
+
+.score-input::-webkit-outer-spin-button,
+.score-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.score-input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-family: var(--font-display);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  padding: 0.6rem 1.4rem;
+  border-radius: 10px;
+  background: var(--grass);
+  color: #06150d;
+  cursor: pointer;
+  transition: filter 0.15s, transform 0.1s;
+}
+
+.btn:hover {
+  filter: brightness(1.12);
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-ghost {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--cream);
+}
+
+.btn-ghost:hover {
+  border-color: var(--grass-dim);
+}
+
+.input {
+  width: 100%;
+  padding: 0.7rem 1rem;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--cream);
+  font-family: var(--font-body);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--grass);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.chip-gold {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.chip-grass {
+  border-color: var(--grass-dim);
+  color: var(--grass);
+}
+
+.chip-locked {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rise {
+  animation: rise 0.45s ease both;
+}
+
+::selection {
+  background: var(--grass);
+  color: #06150d;
 }

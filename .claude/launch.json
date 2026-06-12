@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "polla-dev",
+      "runtimeExecutable": "/Users/estebanr/.nvm/versions/node/v22.22.3/bin/npx",
+      "runtimeArgs": ["next", "dev", "--port", "3344"],
+      "port": 3344
+    }
+  ]
+}

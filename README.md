@@ -1,36 +1,69 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ⚽ La Polla del Mundial 2026
 
-## Getting Started
+App para jugar la polla del Mundial 2026 entre amigos: cada quien pronostica los
+resultados antes de que arranque cada partido, y se acumulan puntos en un ranking.
 
-First, run the development server:
+## Reglas
+
+| Acierto | Puntos |
+| --- | --- |
+| Marcador exacto | **5 pts** |
+| Ganador o empate (sin marcador exacto) | **2 pts** |
+| Goleador del torneo | **10 pts** |
+| Mejor arquero | **10 pts** |
+
+- Los pronósticos se pueden cambiar **hasta que arranca el partido**; después se bloquean.
+- Viene precargado con los **72 partidos reales** de la fase de grupos (12 grupos, 48 selecciones con banderas).
+- **Los resultados se actualizan solos** desde el scoreboard público de ESPN: al cargar el home (máximo una consulta cada 10 min), con un cron diario en Vercel y con el botón "Sincronizar resultados" del admin. El admin puede corregir cualquier resultado a mano.
+- El home muestra la **tabla de posiciones de cada grupo** (verde = clasifica directo, dorado = posible mejor tercero) y el **podio del ranking**.
+- Los cruces de eliminatorias (16avos → final) **se generan automáticamente** según las posiciones de los grupos y los 8 mejores terceros, y se van llenando con cada ganador.
+
+## Stack
+
+Next.js (App Router) · Prisma · PostgreSQL · Tailwind CSS. Sin dependencias de auth: login simple con usuario/contraseña y cookie firmada.
+
+## Desarrollo local
+
+Requiere Node 22+ (hay `.nvmrc`) y Docker para el Postgres local.
 
 ```bash
+nvm use
+npm install
+docker run -d --name polla-postgres -e POSTGRES_PASSWORD=polla -e POSTGRES_DB=polla -p 5544:5432 postgres:16-alpine
+npx prisma db push      # crea las tablas
+npx tsx prisma/seed.ts  # equipos, partidos y usuario admin
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Usuario admin inicial: **admin / admin123** (cámbiale la contraseña o crea otro admin en la BD).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Scripts útiles:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npx tsx scripts/verify.ts  # verifica puntaje y generación de eliminatorias (restaura la BD al final)
+npx tsx scripts/e2e.ts     # prueba E2E en Chrome headless (requiere npm run dev corriendo)
+```
 
-## Learn More
+## Deploy en Vercel
 
-To learn more about Next.js, take a look at the following resources:
+1. **Base de datos**: crea un Postgres en [Neon](https://neon.tech) o [Supabase](https://supabase.com) (gratis) y copia el connection string. En Vercel también puedes usar el marketplace: *Storage → Create Database → Neon*.
+2. **Sube el repo a GitHub** e impórtalo en [vercel.com/new](https://vercel.com/new).
+3. **Variables de entorno** en el proyecto de Vercel:
+   - `DATABASE_URL` → el connection string del paso 1
+   - `SESSION_SECRET` → cualquier string aleatorio largo
+4. **Crea las tablas y el seed** (una sola vez, desde tu máquina apuntando a la BD de producción):
+   ```bash
+   DATABASE_URL="postgres://...produccion..." npx prisma db push
+   DATABASE_URL="postgres://...produccion..." npx tsx prisma/seed.ts
+   ```
+5. Deploy. El `postinstall` ya corre `prisma generate` en el build de Vercel.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Administración
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+En **/admin** (solo usuarios con `isAdmin`):
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Cargar el resultado de cada partido (vacío = borrar). Al guardar se recalculan puntos y cruces.
+- En eliminatorias, si hay empate se elige el ganador por penales.
+- Ajustar la fecha/hora de un partido (en UTC) si FIFA la cambia.
+- Definir el goleador y mejor arquero oficiales, y cerrar las apuestas de premios.
+- "Recalcular cruces" regenera 16avos y propaga ganadores manualmente si hace falta.
