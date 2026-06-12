@@ -19,12 +19,21 @@ model User {
 }
 
 model Team {
-  id          String  @id // código FIFA de 3 letras, ej. "MEX"
+  id          String   @id // código FIFA de 3 letras, ej. "MEX"
   name        String // nombre en español, ej. "México"
   flagCode    String // código ISO-2 para flagcdn, ej. "mx"
   group       String? // "A".."L", null para placeholders
-  homeMatches Match[] @relation("homeTeam")
-  awayMatches Match[] @relation("awayTeam")
+  homeMatches Match[]  @relation("homeTeam")
+  awayMatches Match[]  @relation("awayTeam")
+  players     Player[]
+}
+
+model Player {
+  id       String @id // id de ESPN
+  name     String
+  position String // G | D | M | F
+  teamId   String
+  team     Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
 }
 
 model Match {

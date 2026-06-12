@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { saveAwards } from "@/app/actions/predictions";
+import { PlayerSelect } from "./PlayerSelect";
+import type { PlayerGroup } from "@/lib/players";
 
 export function AwardsForm({
   locked,
@@ -9,12 +11,16 @@ export function AwardsForm({
   bestKeeper,
   actualScorer,
   actualKeeper,
+  scorers,
+  keepers,
 }: {
   locked: boolean;
   topScorer: string;
   bestKeeper: string;
   actualScorer: string;
   actualKeeper: string;
+  scorers: PlayerGroup[];
+  keepers: PlayerGroup[];
 }) {
   const [pending, startTransition] = useTransition();
   const [saved, setSaved] = useState(false);
@@ -38,13 +44,11 @@ export function AwardsForm({
         <label className="mb-1.5 block text-sm font-semibold">
           ⚽ Goleador del Mundial
         </label>
-        <input
+        <PlayerSelect
           name="topScorer"
+          groups={scorers}
           defaultValue={topScorer}
-          placeholder="Ej: Kylian Mbappé"
-          className="input"
           disabled={locked}
-          maxLength={60}
         />
         {actualScorer && (
           <p className="mt-1 text-xs text-[var(--gold)]">
@@ -57,13 +61,11 @@ export function AwardsForm({
         <label className="mb-1.5 block text-sm font-semibold">
           🧤 Mejor arquero
         </label>
-        <input
+        <PlayerSelect
           name="bestKeeper"
+          groups={keepers}
           defaultValue={bestKeeper}
-          placeholder="Ej: Emiliano Martínez"
-          className="input"
           disabled={locked}
-          maxLength={60}
         />
         {actualKeeper && (
           <p className="mt-1 text-xs text-[var(--gold)]">

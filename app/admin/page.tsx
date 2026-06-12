@@ -4,6 +4,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { STAGE_LABELS, slotLabel } from "@/lib/labels";
 import { saveResult, saveKickoff, recalcBracket, saveActualAwards, syncNow } from "@/app/actions/admin";
 import { Flag } from "@/components/Flag";
+import { PlayerSelect } from "@/components/PlayerSelect";
+import { getAwardOptions } from "@/lib/players";
 
 export const dynamic = "force-dynamic";
 
@@ -18,12 +20,13 @@ export default async function AdminPage() {
   if (!user) redirect("/login");
   if (!user.isAdmin) redirect("/");
 
-  const [matches, settings] = await Promise.all([
+  const [matches, settings, options] = await Promise.all([
     prisma.match.findMany({
       include: { homeTeam: true, awayTeam: true },
       orderBy: { id: "asc" },
     }),
     prisma.setting.findMany(),
+    getAwardOptions(),
   ]);
   const settingMap = new Map(settings.map((s) => [s.key, s.value]));
 
@@ -52,20 +55,18 @@ export default async function AdminPage() {
         <form action={saveActualAwards} className="flex flex-wrap items-end gap-3">
           <div className="min-w-48 flex-1">
             <label className="mb-1 block text-xs text-[var(--muted)]">Goleador oficial</label>
-            <input
+            <PlayerSelect
               name="topScorer"
+              groups={options.scorers}
               defaultValue={settingMap.get("topScorer") ?? ""}
-              className="input"
-              placeholder="Definir al final del torneo"
             />
           </div>
           <div className="min-w-48 flex-1">
             <label className="mb-1 block text-xs text-[var(--muted)]">Arquero oficial</label>
-            <input
+            <PlayerSelect
               name="bestKeeper"
+              groups={options.keepers}
               defaultValue={settingMap.get("bestKeeper") ?? ""}
-              className="input"
-              placeholder="Definir al final del torneo"
             />
           </div>
           <label className="flex items-center gap-2 pb-2 text-sm">

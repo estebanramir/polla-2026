@@ -17,7 +17,7 @@ const FINISHED_STATUSES = new Set([
 ]);
 
 // Respaldo por nombre en inglés por si alguna abreviatura difiere
-const NAME_TO_CODE: Record<string, string> = {
+export const NAME_TO_CODE: Record<string, string> = {
   mexico: "MEX", "south africa": "RSA", "south korea": "KOR", czechia: "CZE",
   "czech republic": "CZE", canada: "CAN", "bosnia and herzegovina": "BIH",
   qatar: "QAT", switzerland: "SUI", brazil: "BRA", morocco: "MAR", haiti: "HAI",

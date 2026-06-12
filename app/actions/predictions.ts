@@ -51,6 +51,20 @@ export async function saveAwards(formData: FormData) {
   const topScorer = String(formData.get("topScorer") ?? "").trim();
   const bestKeeper = String(formData.get("bestKeeper") ?? "").trim();
 
+  // solo jugadores reales de la lista, nada de texto libre
+  if (topScorer) {
+    const ok = await prisma.player.findFirst({
+      where: { name: topScorer, position: { in: ["F", "M"] } },
+    });
+    if (!ok) return { error: "Elige un goleador de la lista" };
+  }
+  if (bestKeeper) {
+    const ok = await prisma.player.findFirst({
+      where: { name: bestKeeper, position: "G" },
+    });
+    if (!ok) return { error: "Elige un arquero de la lista" };
+  }
+
   await prisma.awardPrediction.upsert({
     where: { userId: user.id },
     update: { topScorer, bestKeeper },
