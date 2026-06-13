@@ -154,7 +154,9 @@ export default async function HomePage({
             los resultados se actualizan solos.
           </p>
           <div className="mt-2">
-            <NotificationsToggle />
+            <NotificationsToggle
+              publicKey={process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? ""}
+            />
           </div>
         </div>
 

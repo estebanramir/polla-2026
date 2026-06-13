@@ -3,7 +3,14 @@
 import { useEffect, useState } from "react";
 import { savePushSubscription, removePushSubscription } from "@/app/actions/push";
 
-type State = "loading" | "unsupported" | "ios-install" | "off" | "on" | "denied";
+type State =
+  | "loading"
+  | "unsupported"
+  | "unconfigured"
+  | "ios-install"
+  | "off"
+  | "on"
+  | "denied";
 
 function urlBase64ToUint8Array(base64: string) {
   const padding = "=".repeat((4 - (base64.length % 4)) % 4);
@@ -11,14 +18,19 @@ function urlBase64ToUint8Array(base64: string) {
   return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
 }
 
-export function NotificationsToggle() {
+export function NotificationsToggle({ publicKey }: { publicKey: string }) {
   const [state, setState] = useState<State>("loading");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
-      if (!("serviceWorker" in navigator) || !("Notification" in window)) {
-        // iPhone sin instalar: Safari no expone push hasta agregar a inicio
+      if (!publicKey) {
+        // las claves VAPID no están configuradas en el servidor
+        setState("unconfigured");
+        return;
+      }
+      if (!("serviceWorker" in navigator) || !("Notification" in window) || !("PushManager" in window)) {
         const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
         const standalone =
           window.matchMedia("(display-mode: standalone)").matches ||
@@ -33,11 +45,15 @@ export function NotificationsToggle() {
       const reg = await navigator.serviceWorker.register("/sw.js");
       const sub = await reg.pushManager.getSubscription();
       setState(sub ? "on" : "off");
-    })().catch(() => setState("unsupported"));
-  }, []);
+    })().catch((e) => {
+      console.error("push init:", e);
+      setState("unsupported");
+    });
+  }, [publicKey]);
 
   async function enable() {
     setBusy(true);
+    setError(null);
     try {
       const permission = await Notification.requestPermission();
       if (permission !== "granted") {
@@ -47,12 +63,19 @@ export function NotificationsToggle() {
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(
-          process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
-        ),
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
       });
       const res = await savePushSubscription(sub.toJSON() as never);
-      setState(res?.error ? "off" : "on");
+      if (res?.error) {
+        setError(res.error);
+        setState("off");
+      } else {
+        setState("on");
+      }
+    } catch (e) {
+      console.error("push subscribe:", e);
+      setError("No se pudo activar. Revisa que el navegador permita notificaciones.");
+      setState("off");
     } finally {
       setBusy(false);
     }
@@ -60,6 +83,7 @@ export function NotificationsToggle() {
 
   async function disable() {
     setBusy(true);
+    setError(null);
     try {
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
@@ -68,12 +92,16 @@ export function NotificationsToggle() {
         await sub.unsubscribe();
       }
       setState("off");
+    } catch (e) {
+      console.error("push unsubscribe:", e);
     } finally {
       setBusy(false);
     }
   }
 
-  if (state === "loading" || state === "unsupported") return null;
+  if (state === "loading" || state === "unsupported" || state === "unconfigured") {
+    return null;
+  }
 
   if (state === "ios-install") {
     return (
@@ -92,18 +120,23 @@ export function NotificationsToggle() {
     );
   }
 
-  return state === "on" ? (
-    <button
-      onClick={disable}
-      disabled={busy}
-      className="chip chip-grass cursor-pointer hover:opacity-80"
-      title="Desactivar avisos"
-    >
-      🔔 Avisos activados
-    </button>
-  ) : (
-    <button onClick={enable} disabled={busy} className="btn !px-3 !py-1.5 !text-[11px]">
-      🔔 {busy ? "Activando…" : "Avisarme si me faltan pronósticos"}
-    </button>
+  return (
+    <div className="flex flex-col gap-1">
+      {state === "on" ? (
+        <button
+          onClick={disable}
+          disabled={busy}
+          className="chip chip-grass w-fit cursor-pointer hover:opacity-80"
+          title="Desactivar avisos"
+        >
+          🔔 {busy ? "…" : "Avisos activados — toca para desactivar"}
+        </button>
+      ) : (
+        <button onClick={enable} disabled={busy} className="btn w-fit !px-3 !py-1.5 !text-[11px]">
+          🔔 {busy ? "Activando…" : "Avisarme si me faltan pronósticos"}
+        </button>
+      )}
+      {error && <span className="text-[11px] text-[var(--danger)]">{error}</span>}
+    </div>
   );
 }
