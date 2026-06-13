@@ -9,6 +9,7 @@ import { syncResults } from "@/lib/sync";
 import { getLeaderboard } from "@/lib/leaderboard";
 import { MatchCard, type MatchView } from "@/components/MatchCard";
 import { GroupTable } from "@/components/GroupTable";
+import { SectionNav } from "@/components/SectionNav";
 import { NotificationsToggle } from "@/components/NotificationsToggle";
 
 export const dynamic = "force-dynamic";
@@ -201,19 +202,7 @@ export default async function HomePage({
             Por fecha
           </Link>
         </div>
-        {navItems.map((s) => (
-          <a
-            key={s.id}
-            href={`#${s.id}`}
-            className={`whitespace-nowrap rounded-full border px-3 py-1 text-xs hover:border-[var(--grass-dim)] hover:text-[var(--cream)] ${
-              s.id === "hoy"
-                ? "border-[var(--gold)] text-[var(--gold)]"
-                : "border-[var(--line)] text-[var(--muted)]"
-            }`}
-          >
-            {s.title}
-          </a>
-        ))}
+        <SectionNav items={navItems} highlightId="hoy" />
       </nav>
 
       {vista === "fecha" ? (
