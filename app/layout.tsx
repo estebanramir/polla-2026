@@ -33,18 +33,18 @@ export default async function RootLayout({
       <body className="min-h-full flex flex-col">
         <header className="sticky top-0 z-50 border-b border-[var(--line)] bg-[rgba(10,20,16,0.92)] backdrop-blur">
           <div className="mx-auto flex max-w-5xl items-center gap-6 px-4 py-3">
-            <Link href="/" className="font-display leading-none">
-              <span className="block text-xl">
+            <Link href="/" className="shrink-0 font-display leading-none">
+              <span className="block whitespace-nowrap text-base sm:text-xl">
                 <span className="text-[var(--grass)]">LA POLLA</span>{" "}
                 <span className="text-[var(--cream)]">DEL MUNDIAL</span>{" "}
                 <span className="text-[var(--gold)]">26</span>
               </span>
-              <span className="mt-0.5 block text-[10px] tracking-[0.25em] text-[var(--gold)]">
+              <span className="mt-0.5 hidden text-[10px] tracking-[0.25em] text-[var(--gold)] sm:block">
                 RAMIREZ · RUBIO · ESPINOSA
               </span>
             </Link>
             {user && (
-              <nav className="ml-auto flex items-center gap-1 text-sm">
+              <nav className="ml-auto flex items-center gap-1 overflow-x-auto whitespace-nowrap text-sm">
                 <Link href="/" className="rounded-lg px-3 py-1.5 hover:bg-[var(--bg-card)]">
                   Partidos
                 </Link>

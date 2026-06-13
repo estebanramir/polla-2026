@@ -25,20 +25,18 @@ export type MatchView = {
 function TeamSide({
   team,
   slotLabel,
-  align,
 }: {
   team: MatchView["home"];
   slotLabel: string;
-  align: "left" | "right";
 }) {
   return (
-    <div
-      className={`flex flex-1 items-center gap-2.5 ${
-        align === "right" ? "flex-row-reverse text-right" : ""
-      }`}
-    >
-      <Flag code={team?.flagCode} name={team?.name} size={36} />
-      <span className={`text-sm font-semibold leading-tight ${team ? "" : "text-[var(--muted)] italic"}`}>
+    <div className="flex min-w-0 flex-1 flex-col items-center gap-1.5 text-center">
+      <Flag code={team?.flagCode} name={team?.name} size={40} />
+      <span
+        className={`w-full break-words text-xs font-semibold leading-tight ${
+          team ? "" : "italic text-[var(--muted)]"
+        }`}
+      >
         {team?.name ?? slotLabel}
       </span>
     </div>
@@ -95,11 +93,11 @@ export function MatchCard({ match }: { match: MatchView }) {
         )}
       </div>
 
-      <div className="flex items-center gap-3">
-        <TeamSide team={match.home} slotLabel={match.homeSlotLabel} align="left" />
+      <div className="flex items-start gap-3">
+        <TeamSide team={match.home} slotLabel={match.homeSlotLabel} />
 
         {match.locked ? (
-          <div className="flex flex-col items-center gap-1 px-1">
+          <div className="flex flex-col items-center gap-1 px-1 pt-2">
             <div className="font-display text-2xl tabular-nums">
               {hasResult ? `${match.homeScore} - ${match.awayScore}` : "vs"}
             </div>
@@ -113,7 +111,7 @@ export function MatchCard({ match }: { match: MatchView }) {
             )}
           </div>
         ) : (
-          <div className="flex items-center gap-1.5 px-1">
+          <div className="flex items-center gap-1.5 px-1 pt-3">
             <input
               type="number"
               min={0}
@@ -138,7 +136,7 @@ export function MatchCard({ match }: { match: MatchView }) {
           </div>
         )}
 
-        <TeamSide team={match.away} slotLabel={match.awaySlotLabel} align="right" />
+        <TeamSide team={match.away} slotLabel={match.awaySlotLabel} />
       </div>
 
       {!match.locked && (
