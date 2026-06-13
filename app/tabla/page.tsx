@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { getLeaderboard } from "@/lib/leaderboard";
@@ -42,7 +43,12 @@ export default async function TablaPage() {
               >
                 <td className="px-4 py-3 font-display text-lg">{medal[i] ?? i + 1}</td>
                 <td className="px-4 py-3 font-semibold">
-                  {r.name}
+                  <Link
+                    href={`/jugador/${r.id}`}
+                    className="hover:text-[var(--grass)] hover:underline"
+                  >
+                    {r.name}
+                  </Link>
                   {r.id === current.id && (
                     <span className="ml-2 text-xs text-[var(--grass)]">(tú)</span>
                   )}

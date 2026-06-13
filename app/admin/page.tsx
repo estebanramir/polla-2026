@@ -1,10 +1,11 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { STAGE_LABELS, slotLabel } from "@/lib/labels";
 import { saveResult, saveKickoff, recalcBracket, saveActualAwards, syncNow } from "@/app/actions/admin";
 import { Flag } from "@/components/Flag";
-import { PlayerSelect } from "@/components/PlayerSelect";
+import { PlayerCombobox } from "@/components/PlayerCombobox";
 import { getAwardOptions } from "@/lib/players";
 
 export const dynamic = "force-dynamic";
@@ -40,13 +41,16 @@ export default async function AdminPage() {
             (vacío = borrar). Al guardar se recalculan puntos y cruces. Horas en UTC.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <form action={syncNow}>
             <button className="btn">Sincronizar resultados</button>
           </form>
           <form action={recalcBracket}>
             <button className="btn btn-ghost">Recalcular cruces</button>
           </form>
+          <Link href="/admin/usuarios" className="btn btn-ghost">
+            Usuarios
+          </Link>
         </div>
       </div>
 
@@ -55,7 +59,7 @@ export default async function AdminPage() {
         <form action={saveActualAwards} className="flex flex-wrap items-end gap-3">
           <div className="min-w-48 flex-1">
             <label className="mb-1 block text-xs text-[var(--muted)]">Goleador oficial</label>
-            <PlayerSelect
+            <PlayerCombobox
               name="topScorer"
               groups={options.scorers}
               defaultValue={settingMap.get("topScorer") ?? ""}
@@ -63,7 +67,7 @@ export default async function AdminPage() {
           </div>
           <div className="min-w-48 flex-1">
             <label className="mb-1 block text-xs text-[var(--muted)]">Arquero oficial</label>
-            <PlayerSelect
+            <PlayerCombobox
               name="bestKeeper"
               groups={options.keepers}
               defaultValue={settingMap.get("bestKeeper") ?? ""}

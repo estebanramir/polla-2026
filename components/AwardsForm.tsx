@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { saveAwards } from "@/app/actions/predictions";
-import { PlayerSelect } from "./PlayerSelect";
+import { PlayerCombobox } from "./PlayerCombobox";
 import type { PlayerGroup } from "@/lib/players";
 
 export function AwardsForm({
@@ -44,7 +44,7 @@ export function AwardsForm({
         <label className="mb-1.5 block text-sm font-semibold">
           ⚽ Goleador del Mundial
         </label>
-        <PlayerSelect
+        <PlayerCombobox
           name="topScorer"
           groups={scorers}
           defaultValue={topScorer}
@@ -61,7 +61,7 @@ export function AwardsForm({
         <label className="mb-1.5 block text-sm font-semibold">
           🧤 Mejor arquero
         </label>
-        <PlayerSelect
+        <PlayerCombobox
           name="bestKeeper"
           groups={keepers}
           defaultValue={bestKeeper}
