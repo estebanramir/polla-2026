@@ -9,6 +9,7 @@ import { syncResults } from "@/lib/sync";
 import { getLeaderboard } from "@/lib/leaderboard";
 import { MatchCard, type MatchView } from "@/components/MatchCard";
 import { GroupTable } from "@/components/GroupTable";
+import { NotificationsToggle } from "@/components/NotificationsToggle";
 
 export const dynamic = "force-dynamic";
 
@@ -151,6 +152,9 @@ export default async function HomePage({
             Llevas {predCount} de 104 pronósticos · {openCount} partidos abiertos ·
             los resultados se actualizan solos.
           </p>
+          <div className="mt-2">
+            <NotificationsToggle />
+          </div>
         </div>
 
         <Link href="/tabla" className="card card-hover flex items-center gap-4 px-5 py-3">

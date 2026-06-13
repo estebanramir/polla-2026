@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { STAGE_LABELS, slotLabel } from "@/lib/labels";
-import { saveResult, saveKickoff, recalcBracket, saveActualAwards, syncNow } from "@/app/actions/admin";
+import { saveResult, saveKickoff, recalcBracket, saveActualAwards, syncNow, sendRemindersNow } from "@/app/actions/admin";
 import { Flag } from "@/components/Flag";
 import { PlayerCombobox } from "@/components/PlayerCombobox";
 import { getAwardOptions } from "@/lib/players";
@@ -47,6 +47,11 @@ export default async function AdminPage() {
           </form>
           <form action={recalcBracket}>
             <button className="btn btn-ghost">Recalcular cruces</button>
+          </form>
+          <form action={sendRemindersNow}>
+            <button className="btn btn-ghost" title="Push a quienes les falten pronósticos hoy">
+              Enviar recordatorio
+            </button>
           </form>
           <Link href="/admin/usuarios" className="btn btn-ghost">
             Usuarios

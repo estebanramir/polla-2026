@@ -16,6 +16,8 @@ resultados antes de que arranque cada partido, y se acumulan puntos en un rankin
 - Viene precargado con los **72 partidos reales** de la fase de grupos (12 grupos, 48 selecciones con banderas).
 - **Los resultados se actualizan solos** desde el scoreboard público de ESPN: al cargar el home (máximo una consulta cada 10 min), con un cron diario en Vercel y con el botón "Sincronizar resultados" del admin. El admin puede corregir cualquier resultado a mano.
 - El home muestra la **tabla de posiciones de cada grupo** (verde = clasifica directo, dorado = posible mejor tercero) y el **podio del ranking**.
+- **Notificaciones push** (PWA): cada usuario puede activar "Avisarme si me faltan pronósticos"; un cron diario (13:00 UTC) avisa a quien le falten marcadores para los partidos del día. En iPhone hay que agregar la app a la pantalla de inicio. El admin puede disparar el aviso manualmente con "Enviar recordatorio".
+- El sync también **corrige los horarios de los partidos** con la hora oficial de ESPN, así el bloqueo de pronósticos siempre cae en el kickoff real.
 - Los cruces de eliminatorias (16avos → final) **se generan automáticamente** según las posiciones de los grupos y los 8 mejores terceros, y se van llenando con cada ganador.
 
 ## Stack
@@ -51,6 +53,7 @@ npx tsx scripts/e2e.ts     # prueba E2E en Chrome headless (requiere npm run dev
 3. **Variables de entorno** en el proyecto de Vercel:
    - `DATABASE_URL` → el connection string del paso 1
    - `SESSION_SECRET` → cualquier string aleatorio largo
+   - `NEXT_PUBLIC_VAPID_PUBLIC_KEY` y `VAPID_PRIVATE_KEY` → para notificaciones push; genera el par con `npx web-push generate-vapid-keys --json`
 4. **Crea las tablas y el seed** (una sola vez, desde tu máquina apuntando a la BD de producción):
    ```bash
    DATABASE_URL="postgres://...produccion..." npx prisma db push

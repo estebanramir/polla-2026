@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { updateBracket } from "@/lib/knockout";
 import { syncResults } from "@/lib/sync";
+import { sendPredictionReminders } from "@/lib/push";
 
 async function requireAdmin() {
   const user = await getCurrentUser();
@@ -61,6 +62,11 @@ export async function syncNow() {
   await requireAdmin();
   await syncResults({ force: true });
   revalidateAll();
+}
+
+export async function sendRemindersNow() {
+  await requireAdmin();
+  await sendPredictionReminders(24);
 }
 
 export async function saveActualAwards(formData: FormData) {
