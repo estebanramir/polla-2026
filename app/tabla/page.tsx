@@ -21,16 +21,16 @@ export default async function TablaPage() {
         {POINTS.topScorer} pts · Arquero {POINTS.bestKeeper} pts
       </p>
 
-      <div className="card overflow-hidden">
+      <div className="card overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[var(--line)] text-left text-xs uppercase tracking-wider text-[var(--muted)]">
-              <th className="px-4 py-3">#</th>
-              <th className="px-4 py-3">Jugador</th>
-              <th className="px-4 py-3 text-center">Exactos</th>
-              <th className="px-4 py-3 text-center">Aciertos</th>
-              <th className="px-4 py-3 text-center">Premios</th>
-              <th className="px-4 py-3 text-right">Puntos</th>
+              <th className="px-3 py-3 sm:px-4">#</th>
+              <th className="px-3 py-3 sm:px-4">Jugador</th>
+              <th className="hidden px-4 py-3 text-center sm:table-cell">Exactos</th>
+              <th className="hidden px-4 py-3 text-center sm:table-cell">Aciertos</th>
+              <th className="hidden px-4 py-3 text-center sm:table-cell">Premios</th>
+              <th className="px-3 py-3 text-right sm:px-4">Puntos</th>
             </tr>
           </thead>
           <tbody>
@@ -41,8 +41,10 @@ export default async function TablaPage() {
                   r.id === current.id ? "bg-[rgba(47,224,124,0.07)]" : ""
                 }`}
               >
-                <td className="px-4 py-3 font-display text-lg">{medal[i] ?? i + 1}</td>
-                <td className="px-4 py-3 font-semibold">
+                <td className="px-3 py-3 font-display text-lg sm:px-4">
+                  {medal[i] ?? i + 1}
+                </td>
+                <td className="px-3 py-3 font-semibold sm:px-4">
                   <Link
                     href={`/jugador/${r.id}`}
                     className="hover:text-[var(--grass)] hover:underline"
@@ -52,13 +54,21 @@ export default async function TablaPage() {
                   {r.id === current.id && (
                     <span className="ml-2 text-xs text-[var(--grass)]">(tú)</span>
                   )}
+                  <div className="text-[11px] font-normal text-[var(--muted)] sm:hidden">
+                    {r.exacts} exactos · {r.outcomes} aciertos
+                    {r.awardPts > 0 ? ` · +${r.awardPts} premios` : ""}
+                  </div>
                 </td>
-                <td className="px-4 py-3 text-center tabular-nums">{r.exacts}</td>
-                <td className="px-4 py-3 text-center tabular-nums">{r.outcomes}</td>
-                <td className="px-4 py-3 text-center tabular-nums">
+                <td className="hidden px-4 py-3 text-center tabular-nums sm:table-cell">
+                  {r.exacts}
+                </td>
+                <td className="hidden px-4 py-3 text-center tabular-nums sm:table-cell">
+                  {r.outcomes}
+                </td>
+                <td className="hidden px-4 py-3 text-center tabular-nums sm:table-cell">
                   {r.awardPts > 0 ? `+${r.awardPts}` : "–"}
                 </td>
-                <td className="px-4 py-3 text-right font-display text-xl text-[var(--gold)] tabular-nums">
+                <td className="px-3 py-3 text-right font-display text-xl text-[var(--gold)] tabular-nums sm:px-4">
                   {r.total}
                 </td>
               </tr>
