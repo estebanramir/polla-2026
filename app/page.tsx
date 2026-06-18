@@ -77,8 +77,12 @@ export default async function HomePage({
       venue: m.venue,
       stageLabel: STAGE_LABELS[m.stage] ?? m.stage,
       group: m.group,
-      home: m.homeTeam ? { name: m.homeTeam.name, flagCode: m.homeTeam.flagCode } : null,
-      away: m.awayTeam ? { name: m.awayTeam.name, flagCode: m.awayTeam.flagCode } : null,
+      home: m.homeTeam
+        ? { id: m.homeTeam.id, name: m.homeTeam.name, flagCode: m.homeTeam.flagCode }
+        : null,
+      away: m.awayTeam
+        ? { id: m.awayTeam.id, name: m.awayTeam.name, flagCode: m.awayTeam.flagCode }
+        : null,
       homeSlotLabel: slotLabel(m.homeSlot),
       awaySlotLabel: slotLabel(m.awaySlot),
       homeScore: m.homeScore,
@@ -133,8 +137,9 @@ export default async function HomePage({
 
   const openCount = matches.filter((m) => m.kickoff > now).length;
   const predCount = predictions.length;
-  const top3 = leaderboard.slice(0, 3);
-  const myPos = leaderboard.findIndex((r) => r.id === user.id) + 1;
+  // podio: todos los que estén en posición 1, 2 o 3 (incluye empates)
+  const top3 = leaderboard.filter((r) => r.position <= 3);
+  const myPos = leaderboard.find((r) => r.id === user.id)?.position ?? 0;
   const medal = ["🥇", "🥈", "🥉"];
 
   const navItems =
@@ -162,9 +167,9 @@ export default async function HomePage({
 
         <Link href="/tabla" className="card card-hover flex items-center gap-4 px-5 py-3">
           <div className="flex flex-col gap-0.5 text-sm">
-            {top3.map((r, i) => (
+            {top3.map((r) => (
               <span key={r.id} className="flex items-center gap-2">
-                <span>{medal[i]}</span>
+                <span>{medal[r.position - 1]}</span>
                 <span className="max-w-32 truncate font-semibold">{r.name}</span>
                 <span className="font-display text-[var(--gold)]">{r.total}</span>
               </span>
@@ -194,7 +199,7 @@ export default async function HomePage({
             Por grupo
           </Link>
           <Link
-            href="/?vista=fecha"
+            href="/?vista=fecha#hoy"
             className={`px-3 py-1 text-xs font-semibold ${
               vista === "fecha"
                 ? "bg-[var(--grass)] text-[#06150d]"

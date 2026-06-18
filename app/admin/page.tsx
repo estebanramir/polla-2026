@@ -6,7 +6,9 @@ import { STAGE_LABELS, slotLabel } from "@/lib/labels";
 import { saveResult, saveKickoff, recalcBracket, saveActualAwards, syncNow, sendRemindersNow } from "@/app/actions/admin";
 import { Flag } from "@/components/Flag";
 import { PlayerCombobox } from "@/components/PlayerCombobox";
+import { TeamCombobox } from "@/components/TeamCombobox";
 import { getAwardOptions } from "@/lib/players";
+import { getTeamOptions } from "@/lib/teams";
 
 export const dynamic = "force-dynamic";
 
@@ -21,13 +23,14 @@ export default async function AdminPage() {
   if (!user) redirect("/login");
   if (!user.isAdmin) redirect("/");
 
-  const [matches, settings, options] = await Promise.all([
+  const [matches, settings, options, teams] = await Promise.all([
     prisma.match.findMany({
       include: { homeTeam: true, awayTeam: true },
       orderBy: { id: "asc" },
     }),
     prisma.setting.findMany(),
     getAwardOptions(),
+    getTeamOptions(),
   ]);
   const settingMap = new Map(settings.map((s) => [s.key, s.value]));
 
@@ -62,6 +65,22 @@ export default async function AdminPage() {
       <section className="card mb-8 p-5">
         <h2 className="font-display mb-3 text-xl">PREMIOS OFICIALES</h2>
         <form action={saveActualAwards} className="flex flex-wrap items-end gap-3">
+          <div className="min-w-48 flex-1">
+            <label className="mb-1 block text-xs text-[var(--muted)]">Campeón oficial</label>
+            <TeamCombobox
+              name="champion"
+              teams={teams}
+              defaultValue={settingMap.get("champion") ?? ""}
+            />
+          </div>
+          <div className="min-w-48 flex-1">
+            <label className="mb-1 block text-xs text-[var(--muted)]">Subcampeón oficial</label>
+            <TeamCombobox
+              name="runnerUp"
+              teams={teams}
+              defaultValue={settingMap.get("runnerUp") ?? ""}
+            />
+          </div>
           <div className="min-w-48 flex-1">
             <label className="mb-1 block text-xs text-[var(--muted)]">Goleador oficial</label>
             <PlayerCombobox

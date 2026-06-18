@@ -1,8 +1,10 @@
 export const POINTS = {
   exact: 5,
   outcome: 2,
-  topScorer: 10,
-  bestKeeper: 10,
+  topScorer: 15,
+  bestKeeper: 15,
+  champion: 20,
+  runnerUp: 10,
 };
 
 type Score = { homeScore: number; awayScore: number };

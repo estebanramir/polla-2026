@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { getAwardsState } from "@/lib/awards";
 
 export async function savePrediction(formData: FormData) {
   const user = await getCurrentUser();
@@ -43,13 +44,15 @@ export async function saveAwards(formData: FormData) {
   const user = await getCurrentUser();
   if (!user) return { error: "Inicia sesión de nuevo" };
 
-  const locked = await prisma.setting.findUnique({ where: { key: "awardsLocked" } });
-  if (locked?.value === "1") {
+  const { locked } = await getAwardsState();
+  if (locked) {
     return { error: "Los premios ya están cerrados" };
   }
 
   const topScorer = String(formData.get("topScorer") ?? "").trim();
   const bestKeeper = String(formData.get("bestKeeper") ?? "").trim();
+  const champion = String(formData.get("champion") ?? "").trim();
+  const runnerUp = String(formData.get("runnerUp") ?? "").trim();
 
   // solo jugadores reales de la lista, nada de texto libre
   if (topScorer) {
@@ -64,11 +67,24 @@ export async function saveAwards(formData: FormData) {
     });
     if (!ok) return { error: "Elige un arquero de la lista" };
   }
+  // solo equipos reales
+  for (const [id, label] of [
+    [champion, "campeón"],
+    [runnerUp, "subcampeón"],
+  ] as const) {
+    if (id) {
+      const ok = await prisma.team.findFirst({ where: { id, group: { not: null } } });
+      if (!ok) return { error: `Elige un ${label} de la lista` };
+    }
+  }
+  if (champion && runnerUp && champion === runnerUp) {
+    return { error: "Campeón y subcampeón deben ser distintos" };
+  }
 
   await prisma.awardPrediction.upsert({
     where: { userId: user.id },
-    update: { topScorer, bestKeeper },
-    create: { userId: user.id, topScorer, bestKeeper },
+    update: { topScorer, bestKeeper, champion, runnerUp },
+    create: { userId: user.id, topScorer, bestKeeper, champion, runnerUp },
   });
   revalidatePath("/premios");
   return { ok: true };

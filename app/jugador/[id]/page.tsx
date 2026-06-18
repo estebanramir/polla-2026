@@ -34,8 +34,17 @@ export default async function JugadorPage({
   ]);
   if (!player) notFound();
 
+  const teamNames = new Map(
+    (await prisma.team.findMany({ select: { id: true, name: true } })).map((t) => [
+      t.id,
+      t.name,
+    ])
+  );
+  const teamName = (tid: string | null | undefined) =>
+    tid ? (teamNames.get(tid) ?? tid) : "Sin elegir";
+
   const row = leaderboard.find((r) => r.id === player.id);
-  const position = leaderboard.findIndex((r) => r.id === player.id) + 1;
+  const position = row?.position ?? 0;
   const awardsLocked =
     settings.find((s) => s.key === "awardsLocked")?.value === "1";
   const isSelf = viewer.id === player.id;
@@ -57,12 +66,19 @@ export default async function JugadorPage({
 
       <div className="mt-3 mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="font-display text-4xl">
-            {medal[position - 1] ?? ""} {player.displayName.toUpperCase()}
+          <h1 className="font-display flex flex-wrap items-center gap-3 text-4xl">
+            <span>
+              {medal[position - 1] ?? ""} {player.displayName.toUpperCase()}
+            </span>
+            {player.badge && (
+              <span className="chip chip-gold font-body text-base">{player.badge}</span>
+            )}
           </h1>
           <p className="mt-1 text-sm text-[var(--muted)]">
             @{player.username}
             {isSelf && " · (tú)"}
+            {player.pointsAdjustment !== 0 &&
+              ` · ajuste de ${player.pointsAdjustment > 0 ? "+" : ""}${player.pointsAdjustment} pts`}
           </p>
         </div>
         <div className="flex gap-3 text-center">
@@ -85,7 +101,13 @@ export default async function JugadorPage({
       <section className="card mb-8 p-5">
         <h2 className="font-display mb-2 text-xl">PREMIOS</h2>
         {awardsLocked || isSelf ? (
-          <div className="flex flex-wrap gap-6 text-sm">
+          <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+            <span>
+              🏆 Campeón: <strong>{teamName(player.awardPrediction?.champion)}</strong>
+            </span>
+            <span>
+              🥈 Subcampeón: <strong>{teamName(player.awardPrediction?.runnerUp)}</strong>
+            </span>
             <span>
               ⚽ Goleador:{" "}
               <strong>{player.awardPrediction?.topScorer || "Sin elegir"}</strong>

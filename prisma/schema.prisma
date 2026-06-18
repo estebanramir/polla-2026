@@ -14,6 +14,8 @@ model User {
   passwordHash      String
   isAdmin           Boolean            @default(false)
   createdAt         DateTime           @default(now())
+  pointsAdjustment  Int                @default(0) // ajuste manual de puntos (admin)
+  badge             String? // etiqueta visible junto al nombre
   predictions       Prediction[]
   awardPrediction   AwardPrediction?
   pushSubscriptions PushSubscription[]
@@ -81,12 +83,14 @@ model Prediction {
 }
 
 model AwardPrediction {
-  id           String   @id @default(cuid())
-  userId       String   @unique
-  topScorer    String? // nombre del goleador elegido
-  bestKeeper   String? // nombre del arquero elegido
-  updatedAt    DateTime @updatedAt
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  topScorer  String? // nombre del goleador elegido
+  bestKeeper String? // nombre del arquero elegido
+  champion   String? // id de equipo campeón elegido
+  runnerUp   String? // id de equipo subcampeón elegido
+  updatedAt  DateTime @updatedAt
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 // Valores reales definidos por el admin al final del torneo

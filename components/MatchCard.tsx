@@ -1,9 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { savePrediction } from "@/app/actions/predictions";
 import { Flag } from "./Flag";
 import { LocalTime } from "./LocalTime";
+
+type TeamRef = { id: string; name: string; flagCode: string | null } | null;
 
 export type MatchView = {
   id: number;
@@ -11,8 +14,8 @@ export type MatchView = {
   venue: string;
   stageLabel: string;
   group: string | null;
-  home: { name: string; flagCode: string | null } | null;
-  away: { name: string; flagCode: string | null } | null;
+  home: TeamRef;
+  away: TeamRef;
   homeSlotLabel: string;
   awaySlotLabel: string;
   homeScore: number | null;
@@ -22,15 +25,9 @@ export type MatchView = {
   points: number | null; // puntos ganados, null si no hay resultado
 };
 
-function TeamSide({
-  team,
-  slotLabel,
-}: {
-  team: MatchView["home"];
-  slotLabel: string;
-}) {
-  return (
-    <div className="flex min-w-0 flex-1 flex-col items-center gap-1.5 text-center">
+function TeamSide({ team, slotLabel }: { team: TeamRef; slotLabel: string }) {
+  const inner = (
+    <>
       <Flag code={team?.flagCode} name={team?.name} size={40} />
       <span
         className={`w-full break-words text-xs font-semibold leading-tight ${
@@ -39,6 +36,23 @@ function TeamSide({
       >
         {team?.name ?? slotLabel}
       </span>
+    </>
+  );
+
+  if (team) {
+    return (
+      <Link
+        href={`/equipo/${team.id}`}
+        className="flex min-w-0 flex-1 flex-col items-center gap-1.5 rounded-lg py-1 text-center transition-colors hover:bg-[var(--bg-card-hover)]"
+        title={`Ver partidos de ${team.name}`}
+      >
+        {inner}
+      </Link>
+    );
+  }
+  return (
+    <div className="flex min-w-0 flex-1 flex-col items-center gap-1.5 py-1 text-center">
+      {inner}
     </div>
   );
 }
@@ -77,8 +91,11 @@ export function MatchCard({ match }: { match: MatchView }) {
     <div className="card card-hover rise p-4 transition-colors">
       <div className="mb-3 flex items-center justify-between text-xs text-[var(--muted)]">
         <span>
-          P{match.id} · <LocalTime iso={match.kickoff} />
-          {match.venue ? ` · ${match.venue}` : ""}
+          P{match.id} ·{" "}
+          <span className="text-[var(--gold)]">
+            {match.group ? `Grupo ${match.group}` : match.stageLabel}
+          </span>{" "}
+          · <LocalTime iso={match.kickoff} />
         </span>
         {match.locked ? (
           hasResult && match.points != null ? (

@@ -73,11 +73,15 @@ export async function saveActualAwards(formData: FormData) {
   await requireAdmin();
   const topScorer = String(formData.get("topScorer") ?? "").trim();
   const bestKeeper = String(formData.get("bestKeeper") ?? "").trim();
+  const champion = String(formData.get("champion") ?? "").trim();
+  const runnerUp = String(formData.get("runnerUp") ?? "").trim();
   const awardsLocked = formData.get("awardsLocked") === "on" ? "1" : "0";
 
   for (const [key, value] of [
     ["topScorer", topScorer],
     ["bestKeeper", bestKeeper],
+    ["champion", champion],
+    ["runnerUp", runnerUp],
     ["awardsLocked", awardsLocked],
   ] as const) {
     await prisma.setting.upsert({
