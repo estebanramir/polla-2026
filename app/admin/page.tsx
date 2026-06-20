@@ -56,6 +56,9 @@ export default async function AdminPage() {
               Enviar recordatorio
             </button>
           </form>
+          <Link href="/admin/pronosticos" className="btn btn-ghost">
+            Ver pronósticos
+          </Link>
           <Link href="/admin/usuarios" className="btn btn-ghost">
             Usuarios
           </Link>
