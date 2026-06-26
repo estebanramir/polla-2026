@@ -18,6 +18,38 @@ function revalidateAll() {
   revalidatePath("/tabla");
   revalidatePath("/premios");
   revalidatePath("/admin");
+  revalidatePath("/admin/pronosticos");
+}
+
+/** El admin corrige (o crea/borra) el pronóstico de cualquier jugador. */
+export async function adminSavePrediction(formData: FormData) {
+  await requireAdmin();
+  const userId = String(formData.get("userId") ?? "");
+  const matchId = Number(formData.get("matchId"));
+  const rawHome = String(formData.get("homeScore") ?? "").trim();
+  const rawAway = String(formData.get("awayScore") ?? "").trim();
+  if (!userId || !Number.isInteger(matchId)) return { error: "Datos inválidos" };
+
+  // ambos vacíos = borrar el pronóstico
+  if (rawHome === "" && rawAway === "") {
+    await prisma.prediction.deleteMany({ where: { userId, matchId } });
+    revalidateAll();
+    return { ok: true, deleted: true };
+  }
+
+  const h = Number(rawHome);
+  const a = Number(rawAway);
+  if (![h, a].every((n) => Number.isInteger(n) && n >= 0 && n <= 99)) {
+    return { error: "Marcador inválido" };
+  }
+
+  await prisma.prediction.upsert({
+    where: { userId_matchId: { userId, matchId } },
+    update: { homeScore: h, awayScore: a },
+    create: { userId, matchId, homeScore: h, awayScore: a },
+  });
+  revalidateAll();
+  return { ok: true };
 }
 
 export async function saveResult(formData: FormData) {

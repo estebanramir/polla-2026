@@ -6,6 +6,7 @@ import { matchPoints, POINTS } from "@/lib/scoring";
 import { STAGE_LABELS } from "@/lib/labels";
 import { Flag } from "@/components/Flag";
 import { LocalTime } from "@/components/LocalTime";
+import { AdminPredCell } from "@/components/AdminPredCell";
 
 export const dynamic = "force-dynamic";
 
@@ -55,8 +56,9 @@ export default async function AdminPronosticosPage() {
       <p className="mb-6 text-sm text-[var(--muted)]">
         Todos los pronósticos de los {users.length} jugadores.{" "}
         <span className="text-[var(--grass)]">Verde</span> = marcador exacto,{" "}
-        <span className="text-[var(--gold)]">dorado</span> = acertó ganador. Desliza
-        horizontalmente para ver a todos.
+        <span className="text-[var(--gold)]">dorado</span> = acertó ganador.{" "}
+        <strong>Toca cualquier celda</strong> para editar ese pronóstico (con
+        confirmación). Desliza para ver a todos.
       </p>
 
       {/* Premios por jugador */}
@@ -102,16 +104,21 @@ export default async function AdminPronosticosPage() {
 
       {/* Matriz de marcadores */}
       <h2 className="font-display mb-3 text-xl">MARCADORES</h2>
-      <div className="card overflow-x-auto">
+      <div className="card max-h-[75vh] overflow-auto">
         <table className="text-xs">
           <thead>
-            <tr className="border-b border-[var(--line)] text-[var(--muted)]">
-              <th className="sticky left-0 z-10 bg-[var(--bg-card)] px-3 py-2 text-left">
+            <tr className="text-[var(--muted)]">
+              <th className="sticky left-0 top-0 z-30 border-b border-[var(--line)] bg-[var(--bg-card)] px-3 py-2 text-left">
                 Partido
               </th>
-              <th className="px-2 py-2 text-center">Real</th>
+              <th className="sticky top-0 z-20 border-b border-[var(--line)] bg-[var(--bg-card)] px-2 py-2 text-center">
+                Real
+              </th>
               {users.map((u) => (
-                <th key={u.id} className="px-2 py-2 text-center font-semibold">
+                <th
+                  key={u.id}
+                  className="sticky top-0 z-20 border-b border-[var(--line)] bg-[var(--bg-card)] px-2 py-2 text-center font-semibold"
+                >
                   <span className="block max-w-20 truncate" title={u.displayName}>
                     {u.displayName}
                   </span>
@@ -125,6 +132,7 @@ export default async function AdminPronosticosPage() {
               const result = hasResult
                 ? { homeScore: m.homeScore!, awayScore: m.awayScore! }
                 : null;
+              const matchLabel = `${m.homeTeam?.name} vs ${m.awayTeam?.name}`;
               return (
                 <tr key={m.id} className="border-b border-[var(--line)] last:border-0">
                   <td className="sticky left-0 z-10 whitespace-nowrap bg-[var(--bg-card)] px-3 py-2">
@@ -144,15 +152,19 @@ export default async function AdminPronosticosPage() {
                     {hasResult ? `${m.homeScore}-${m.awayScore}` : "–"}
                   </td>
                   {users.map((u) => {
-                    const pred = predIndex.get(u.id)?.get(m.id);
-                    const pts =
-                      pred && result ? matchPoints(pred, result) : null;
+                    const pred = predIndex.get(u.id)?.get(m.id) ?? null;
+                    const pts = pred && result ? matchPoints(pred, result) : null;
                     return (
-                      <td
-                        key={u.id}
-                        className={`px-2 py-2 text-center tabular-nums ${cellColor(pts)}`}
-                      >
-                        {pred ? `${pred.homeScore}-${pred.awayScore}` : "·"}
+                      <td key={u.id} className="p-0">
+                        <AdminPredCell
+                          userId={u.id}
+                          userName={u.displayName}
+                          matchId={m.id}
+                          matchLabel={matchLabel}
+                          initialHome={pred?.homeScore ?? null}
+                          initialAway={pred?.awayScore ?? null}
+                          colorClass={cellColor(pts)}
+                        />
                       </td>
                     );
                   })}
