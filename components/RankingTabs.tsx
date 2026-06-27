@@ -11,11 +11,13 @@ function Table({
   currentId,
   extraLabel,
   extraValue,
+  showBadge,
 }: {
   rows: RankRow[];
   currentId: string;
   extraLabel: string;
   extraValue: (r: RankRow) => number;
+  showBadge: boolean;
 }) {
   return (
     <div className="card overflow-x-auto">
@@ -57,7 +59,9 @@ function Table({
                     {r.id === currentId && (
                       <span className="text-xs text-[var(--grass)]">(tú)</span>
                     )}
-                    {r.badge && <span className="chip chip-gold">{r.badge}</span>}
+                    {showBadge && r.badge && (
+                      <span className="chip chip-gold">{r.badge}</span>
+                    )}
                   </span>
                   <div className="text-[11px] font-normal text-[var(--muted)] sm:hidden">
                     {r.exacts} exactos · {r.outcomes} aciertos
@@ -131,6 +135,7 @@ export function RankingTabs({
           currentId={currentId}
           extraLabel="Ajuste"
           extraValue={(r) => r.adjustment}
+          showBadge
         />
       ) : (
         <Table
@@ -138,6 +143,7 @@ export function RankingTabs({
           currentId={currentId}
           extraLabel="Premios"
           extraValue={(r) => r.awardPts}
+          showBadge={false}
         />
       )}
     </div>
