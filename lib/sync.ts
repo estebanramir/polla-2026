@@ -6,8 +6,47 @@ import { updateBracket } from "./knockout";
  * (las abreviaturas de ESPN coinciden con los códigos FIFA del seed).
  */
 
-const ESPN_URL =
-  "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard";
+const ESPN_BASE =
+  "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world";
+const ESPN_URL = `${ESPN_BASE}/scoreboard`;
+
+/**
+ * Marcador a los 90'+adición de un partido (suma de los dos primeros tiempos),
+ * leído del detalle de ESPN. Sirve para eliminatorias que fueron a alargue o
+ * penales, donde el marcador del scoreboard incluye la prórroga.
+ * Devuelve null si no se puede determinar con confianza.
+ */
+async function fetchRegulationScore(
+  eventId: string
+): Promise<{ home: number; away: number } | null> {
+  try {
+    const res = await fetch(`${ESPN_BASE}/summary?event=${eventId}`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const comps = data?.header?.competitions?.[0]?.competitors;
+    if (!Array.isArray(comps) || comps.length !== 2) return null;
+    const reg = (c: { homeAway: string; linescores?: { displayValue?: string }[] }) => {
+      const ls = c.linescores;
+      if (!Array.isArray(ls) || ls.length < 2) return null;
+      const h1 = Number(ls[0]?.displayValue);
+      const h2 = Number(ls[1]?.displayValue);
+      if (!Number.isInteger(h1) || !Number.isInteger(h2)) return null;
+      return h1 + h2;
+    };
+    const homeC = comps.find((c) => c.homeAway === "home");
+    const awayC = comps.find((c) => c.homeAway === "away");
+    if (!homeC || !awayC) return null;
+    const home = reg(homeC);
+    const away = reg(awayC);
+    if (home == null || away == null) return null;
+    return { home, away };
+  } catch {
+    return null;
+  }
+}
 
 const FINISHED_STATUSES = new Set([
   "STATUS_FULL_TIME",
@@ -44,6 +83,7 @@ type EspnCompetitor = {
 };
 
 type EspnEvent = {
+  id: string;
   date: string;
   competitions: {
     date: string;
@@ -149,26 +189,38 @@ export async function syncResults({ force = false, daysAhead = 4 } = {}) {
     const isKnockout = match.stage !== "GROUP";
     // alargue o penales: el marcador de ESPN incluye la prórroga
     const wentBeyond90 = /AET|PEN|SHOOTOUT|EXTRA/i.test(comp.status.type.name);
+    // local/visitante de la BD pueden venir invertidos respecto a ESPN
+    const flipped = match.homeTeamId !== homeCode;
 
     // equipo que avanza (incluye penales/alargue): bandera de ESPN
     const advancingComp = comp.competitors.find((c) => c.advance || c.winner);
     const advancingCode = advancingComp ? teamCode(advancingComp, validCodes) : null;
 
     if (isKnockout && wentBeyond90) {
-      // La polla puntúa con el resultado de los 90'+adición, que ESPN no separa
-      // aquí. Dejamos el marcador para que lo cargue el admin (será un empate) y
-      // solo fijamos qué equipo avanza, para que el cuadro siga.
-      if (advancingCode && advancingCode !== match.winnerId) {
+      // Fue a alargue/penales: el marcador del scoreboard incluye la prórroga.
+      // La polla usa el marcador de los 90'+adición = suma de los dos primeros
+      // tiempos, que se lee del detalle del partido. Todo automático.
+      const reg = await fetchRegulationScore(event.id);
+      const winnerId = advancingCode ?? match.winnerId ?? null;
+      if (reg) {
+        const hs = flipped ? reg.away : reg.home;
+        const as = flipped ? reg.home : reg.away;
         await prisma.match.update({
           where: { id: match.id },
-          data: { winnerId: advancingCode },
+          data: { homeScore: hs, awayScore: as, winnerId },
+        });
+        updated++;
+      } else if (winnerId && winnerId !== match.winnerId) {
+        // si no se pudo leer el marcador de los 90', al menos hacer avanzar al ganador
+        await prisma.match.update({
+          where: { id: match.id },
+          data: { winnerId },
         });
         updated++;
       }
       continue;
     }
 
-    const flipped = match.homeTeamId !== homeCode;
     const hs = Number(flipped ? awayC.score : homeC.score);
     const as = Number(flipped ? homeC.score : awayC.score);
     if (!Number.isInteger(hs) || !Number.isInteger(as)) continue;
