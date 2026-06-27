@@ -98,15 +98,22 @@ export async function updateBracket() {
     }
   }
 
-  // Ganadores y perdedores de partidos ya jugados
+  // Ganadores y perdedores de partidos ya jugados.
+  // El que avanza viene de winnerId (penales/alargue, lo fija el sync o el admin)
+  // o, si no está, del marcador decisivo de los 90'.
   const allMatches = await prisma.match.findMany();
   const byId = new Map(allMatches.map((m) => [m.id, m]));
   for (const m of allMatches) {
-    if (m.stage === "GROUP") continue;
-    const winner = matchWinner(m);
-    if (winner) {
-      slotTeam.set(`W${m.id}`, winner.winnerId);
-      slotTeam.set(`L${m.id}`, winner.loserId);
+    if (m.stage === "GROUP" || !m.homeTeamId || !m.awayTeamId) continue;
+    let winnerId = m.winnerId;
+    if (!winnerId && m.homeScore != null && m.awayScore != null) {
+      if (m.homeScore > m.awayScore) winnerId = m.homeTeamId;
+      else if (m.awayScore > m.homeScore) winnerId = m.awayTeamId;
+    }
+    if (winnerId) {
+      const loserId = winnerId === m.homeTeamId ? m.awayTeamId : m.homeTeamId;
+      slotTeam.set(`W${m.id}`, winnerId);
+      slotTeam.set(`L${m.id}`, loserId);
     }
   }
 
@@ -132,24 +139,6 @@ export async function updateBracket() {
 function resolveSlot(slot: string, matchId: number, slotTeam: Map<string, string>) {
   if (slot.startsWith("3:")) return slotTeam.get(`3@${matchId}`);
   return slotTeam.get(slot);
-}
-
-function matchWinner(m: {
-  homeScore: number | null;
-  awayScore: number | null;
-  homeTeamId: string | null;
-  awayTeamId: string | null;
-  winnerId: string | null;
-}) {
-  if (m.homeScore == null || m.awayScore == null) return null;
-  if (!m.homeTeamId || !m.awayTeamId) return null;
-  let winnerId: string | null = null;
-  if (m.homeScore > m.awayScore) winnerId = m.homeTeamId;
-  else if (m.homeScore < m.awayScore) winnerId = m.awayTeamId;
-  else winnerId = m.winnerId; // empate: definido por penales (lo fija el admin)
-  if (!winnerId) return null;
-  const loserId = winnerId === m.homeTeamId ? m.awayTeamId : m.homeTeamId;
-  return { winnerId, loserId };
 }
 
 /**

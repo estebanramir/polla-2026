@@ -38,6 +38,8 @@ type EspnCompetitor = {
   homeAway: "home" | "away";
   score?: string;
   shootoutScore?: number;
+  winner?: boolean;
+  advance?: boolean;
   team: { abbreviation?: string; displayName?: string };
 };
 
@@ -144,16 +146,37 @@ export async function syncResults({ force = false, daysAhead = 4 } = {}) {
 
     if (!FINISHED_STATUSES.has(comp.status.type.name)) continue;
 
+    const isKnockout = match.stage !== "GROUP";
+    // alargue o penales: el marcador de ESPN incluye la prórroga
+    const wentBeyond90 = /AET|PEN|SHOOTOUT|EXTRA/i.test(comp.status.type.name);
+
+    // equipo que avanza (incluye penales/alargue): bandera de ESPN
+    const advancingComp = comp.competitors.find((c) => c.advance || c.winner);
+    const advancingCode = advancingComp ? teamCode(advancingComp, validCodes) : null;
+
+    if (isKnockout && wentBeyond90) {
+      // La polla puntúa con el resultado de los 90'+adición, que ESPN no separa
+      // aquí. Dejamos el marcador para que lo cargue el admin (será un empate) y
+      // solo fijamos qué equipo avanza, para que el cuadro siga.
+      if (advancingCode && advancingCode !== match.winnerId) {
+        await prisma.match.update({
+          where: { id: match.id },
+          data: { winnerId: advancingCode },
+        });
+        updated++;
+      }
+      continue;
+    }
+
     const flipped = match.homeTeamId !== homeCode;
     const hs = Number(flipped ? awayC.score : homeC.score);
     const as = Number(flipped ? homeC.score : awayC.score);
     if (!Number.isInteger(hs) || !Number.isInteger(as)) continue;
 
-    // ganador por penales en eliminatorias
-    let winnerId: string | null = null;
-    if (hs === as && homeC.shootoutScore != null && awayC.shootoutScore != null) {
-      winnerId = homeC.shootoutScore > awayC.shootoutScore ? homeCode : awayCode;
-    }
+    // en eliminatoria definida en los 90', el que avanza es el ganador del marcador
+    const winnerId = isKnockout
+      ? (advancingCode ?? (hs > as ? match.homeTeamId : as > hs ? match.awayTeamId : null))
+      : null;
 
     await prisma.match.update({
       where: { id: match.id },
