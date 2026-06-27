@@ -6,9 +6,11 @@ import { matchPoints } from "@/lib/scoring";
 import { STAGE_LABELS, slotLabel } from "@/lib/labels";
 import { computeStandings } from "@/lib/standings";
 import { syncResults } from "@/lib/sync";
-import { getLeaderboard } from "@/lib/leaderboard";
+import { getRankings } from "@/lib/leaderboard";
+import { getThirdPlaceStandings } from "@/lib/knockout";
 import { MatchCard, type MatchView } from "@/components/MatchCard";
 import { GroupTable } from "@/components/GroupTable";
+import { ThirdPlaceTable } from "@/components/ThirdPlaceTable";
 import { SectionNav } from "@/components/SectionNav";
 import { NotificationsToggle } from "@/components/NotificationsToggle";
 
@@ -54,15 +56,17 @@ export default async function HomePage({
     console.error("syncResults falló:", e);
   }
 
-  const [matches, predictions, teams, leaderboard] = await Promise.all([
+  const [matches, predictions, teams, rankings, thirds] = await Promise.all([
     prisma.match.findMany({
       include: { homeTeam: true, awayTeam: true },
       orderBy: [{ kickoff: "asc" }, { id: "asc" }],
     }),
     prisma.prediction.findMany({ where: { userId: user.id } }),
     prisma.team.findMany(),
-    getLeaderboard(),
+    getRankings(),
+    getThirdPlaceStandings(),
   ]);
+  const leaderboard = rankings.groups; // el podio del inicio usa la fase de grupos
 
   const teamInfo = new Map(teams.map((t) => [t.id, { name: t.name, flagCode: t.flagCode }]));
   const predByMatch = new Map(predictions.map((p) => [p.matchId, p]));
@@ -145,7 +149,11 @@ export default async function HomePage({
   const navItems =
     vista === "fecha"
       ? daySections.map((s) => ({ id: s.id, title: s.title }))
-      : [...groupSections, ...koSections].map((s) => ({ id: s.id, title: s.title }));
+      : [
+          ...groupSections.map((s) => ({ id: s.id, title: s.title })),
+          { id: "terceros", title: "Terceros" },
+          ...koSections.map((s) => ({ id: s.id, title: s.title })),
+        ];
 
   return (
     <div>
@@ -235,28 +243,47 @@ export default async function HomePage({
         </div>
       ) : (
         <div className="flex flex-col gap-10">
-          {[...groupSections, ...koSections].map((section) => (
+          {groupSections.map((section) => (
             <section key={section.id} id={section.id} className="scroll-mt-28">
               <h2 className="font-display mb-4 text-2xl text-[var(--gold)]">
                 {section.title.toUpperCase()}
               </h2>
-              <div className={section.standings ? "grid items-start gap-4 lg:grid-cols-3" : ""}>
-                {section.standings && (
-                  <div className="lg:sticky lg:top-28">
-                    <GroupTable rows={section.standings} teams={teamInfo} />
-                  </div>
-                )}
-                <div
-                  className={
-                    section.standings
-                      ? "grid gap-3 md:grid-cols-2 lg:col-span-2 lg:grid-cols-1 2xl:grid-cols-2"
-                      : "grid gap-3 md:grid-cols-2"
-                  }
-                >
+              <div className="grid items-start gap-4 lg:grid-cols-3">
+                <div className="lg:sticky lg:top-28">
+                  <GroupTable rows={section.standings!} teams={teamInfo} />
+                </div>
+                <div className="grid gap-3 md:grid-cols-2 lg:col-span-2 lg:grid-cols-1 2xl:grid-cols-2">
                   {section.matches.map((m) => (
                     <MatchCard key={m.id} match={m} />
                   ))}
                 </div>
+              </div>
+            </section>
+          ))}
+
+          <section id="terceros" className="scroll-mt-28">
+            <h2 className="font-display mb-4 text-2xl text-[var(--gold)]">
+              MEJORES TERCEROS
+            </h2>
+            <p className="mb-3 text-sm text-[var(--muted)]">
+              Los 8 mejores terceros (de 12) clasifican a dieciseisavos.
+            </p>
+            <ThirdPlaceTable
+              rows={thirds.rows}
+              teams={teamInfo}
+              allComplete={thirds.allComplete}
+            />
+          </section>
+
+          {koSections.map((section) => (
+            <section key={section.id} id={section.id} className="scroll-mt-28">
+              <h2 className="font-display mb-4 text-2xl text-[var(--gold)]">
+                {section.title.toUpperCase()}
+              </h2>
+              <div className="grid gap-3 md:grid-cols-2">
+                {section.matches.map((m) => (
+                  <MatchCard key={m.id} match={m} />
+                ))}
               </div>
             </section>
           ))}

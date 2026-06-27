@@ -12,6 +12,32 @@ export async function groupStandings(group: string): Promise<StandingRow[]> {
 
 const GROUPS = "ABCDEFGHIJKL".split("");
 
+export type ThirdRow = StandingRow & { qualified: boolean };
+
+/**
+ * Tabla de los 12 terceros lugares, ordenada; marca los 8 que clasifican.
+ * Mientras la fase de grupos no termine, es provisional.
+ */
+export async function getThirdPlaceStandings(): Promise<{
+  rows: ThirdRow[];
+  allComplete: boolean;
+}> {
+  const tables = await Promise.all(GROUPS.map((g) => groupStandings(g)));
+  let allComplete = true;
+  const thirds: StandingRow[] = [];
+  for (const table of tables) {
+    const third = table[2];
+    if (third) thirds.push(third);
+    // grupo completo = sus 4 equipos jugaron 3 partidos
+    if (!table.every((t) => t.pj === 3)) allComplete = false;
+  }
+  thirds.sort((x, y) => y.pts - x.pts || y.dg - x.dg || y.gf - x.gf);
+  return {
+    rows: thirds.map((t, i) => ({ ...t, qualified: i < 8 })),
+    allComplete,
+  };
+}
+
 /**
  * Actualiza los cruces de eliminatorias:
  * - Si la fase de grupos está completa, asigna 1°/2° y mejores terceros a los 16avos.
@@ -20,31 +46,45 @@ const GROUPS = "ABCDEFGHIJKL".split("");
  */
 export async function updateBracket() {
   const groupMatches = await prisma.match.findMany({ where: { stage: "GROUP" } });
-  const groupsDone = groupMatches.every(
-    (m) => m.homeScore != null && m.awayScore != null
-  );
-
   const slotTeam = new Map<string, string>(); // "1A" -> teamId
 
-  if (groupsDone) {
-    const thirds: StandingRow[] = [];
-    for (const g of GROUPS) {
-      const table = await groupStandings(g);
-      slotTeam.set(`1${g}`, table[0].teamId);
-      slotTeam.set(`2${g}`, table[1].teamId);
-      thirds.push(table[2]);
+  // Un grupo está terminado cuando sus 6 partidos tienen resultado.
+  const matchesByGroup = new Map<string, typeof groupMatches>();
+  for (const m of groupMatches) {
+    if (!m.group) continue;
+    const list = matchesByGroup.get(m.group) ?? [];
+    list.push(m);
+    matchesByGroup.set(m.group, list);
+  }
+  const groupDone = (g: string) => {
+    const list = matchesByGroup.get(g) ?? [];
+    return list.length > 0 && list.every((m) => m.homeScore != null && m.awayScore != null);
+  };
+
+  // 1°/2° de cada grupo apenas ese grupo termina (sin esperar a los demás).
+  const thirds: StandingRow[] = [];
+  let allGroupsDone = true;
+  for (const g of GROUPS) {
+    if (!groupDone(g)) {
+      allGroupsDone = false;
+      continue;
     }
-    // Mejores 8 terceros
+    const table = await groupStandings(g);
+    slotTeam.set(`1${g}`, table[0].teamId);
+    slotTeam.set(`2${g}`, table[1].teamId);
+    thirds.push(table[2]);
+  }
+
+  // Los mejores terceros solo se pueden asignar cuando TODOS los grupos terminaron.
+  if (allGroupsDone) {
     thirds.sort((x, y) => y.pts - x.pts || y.dg - x.dg || y.gf - x.gf);
     const best8 = thirds.slice(0, 8);
 
-    // Slots de terceros con sus grupos permitidos
     const koMatches = await prisma.match.findMany({ where: { stage: "R32" } });
     const thirdSlots = koMatches
       .filter((m) => m.awaySlot?.startsWith("3:"))
       .map((m) => ({ matchId: m.id, allowed: m.awaySlot!.slice(2).split("") }));
 
-    // Asignación por backtracking: cada tercero a un slot cuyo grupo esté permitido
     const assignment = assignThirds(
       thirdSlots,
       best8.map((t) => t.group)

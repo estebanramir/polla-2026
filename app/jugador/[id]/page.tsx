@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { getLeaderboard } from "@/lib/leaderboard";
+import { getRankings } from "@/lib/leaderboard";
 import { matchPoints } from "@/lib/scoring";
 import { STAGE_LABELS } from "@/lib/labels";
 import { Flag } from "@/components/Flag";
@@ -29,7 +29,7 @@ export default async function JugadorPage({
         },
       },
     }),
-    getLeaderboard(),
+    getRankings(),
     prisma.setting.findMany(),
   ]);
   if (!player) notFound();
@@ -43,8 +43,9 @@ export default async function JugadorPage({
   const teamName = (tid: string | null | undefined) =>
     tid ? (teamNames.get(tid) ?? tid) : "Sin elegir";
 
-  const row = leaderboard.find((r) => r.id === player.id);
-  const position = row?.position ?? 0;
+  const groupRow = leaderboard.groups.find((r) => r.id === player.id);
+  const finalRow = leaderboard.finals.find((r) => r.id === player.id);
+  const position = groupRow?.position ?? 0;
   const awardsLocked =
     settings.find((s) => s.key === "awardsLocked")?.value === "1";
   const isSelf = viewer.id === player.id;
@@ -81,20 +82,25 @@ export default async function JugadorPage({
               ` · ajuste de ${player.pointsAdjustment > 0 ? "+" : ""}${player.pointsAdjustment} pts`}
           </p>
         </div>
-        <div className="flex gap-3 text-center">
-          {[
-            [`${position}°`, "Puesto"],
-            [row?.total ?? 0, "Puntos"],
-            [row?.exacts ?? 0, "Exactos"],
-            [row?.outcomes ?? 0, "Aciertos"],
-          ].map(([value, label]) => (
-            <div key={label} className="card px-4 py-2.5">
-              <div className="font-display text-2xl text-[var(--gold)]">{value}</div>
-              <div className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
-                {label}
-              </div>
+        <div className="flex flex-wrap gap-3 text-center">
+          <div className="card px-4 py-2.5">
+            <div className="font-display text-2xl text-[var(--grass)]">
+              {groupRow?.position ?? "–"}°
             </div>
-          ))}
+            <div className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+              Grupos
+            </div>
+            <div className="text-xs text-[var(--gold)]">{groupRow?.total ?? 0} pts</div>
+          </div>
+          <div className="card px-4 py-2.5">
+            <div className="font-display text-2xl text-[var(--grass)]">
+              {finalRow?.position ?? "–"}°
+            </div>
+            <div className="text-[10px] uppercase tracking-wider text-[var(--muted)]">
+              Eliminatorias
+            </div>
+            <div className="text-xs text-[var(--gold)]">{finalRow?.total ?? 0} pts</div>
+          </div>
         </div>
       </div>
 

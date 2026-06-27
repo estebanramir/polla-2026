@@ -1,7 +1,7 @@
 import { prisma } from "./prisma";
 import { matchPoints, normalizeName, POINTS } from "./scoring";
 
-export type LeaderboardRow = {
+export type RankRow = {
   id: string;
   name: string;
   badge: string | null;
@@ -9,11 +9,29 @@ export type LeaderboardRow = {
   total: number;
   exacts: number;
   outcomes: number;
-  awardPts: number;
-  adjustment: number;
+  awardPts: number; // premios (relevante en la pestaña de eliminatorias)
+  adjustment: number; // ajuste manual (relevante en la pestaña de grupos)
 };
 
-export async function getLeaderboard(): Promise<LeaderboardRow[]> {
+export type Rankings = { groups: RankRow[]; finals: RankRow[] };
+
+/** Asigna posición compartida en empates: 1, 1, 3, 4… */
+function assignPositions(rows: RankRow[]) {
+  rows.sort(
+    (a, b) => b.total - a.total || b.exacts - a.exacts || a.name.localeCompare(b.name)
+  );
+  rows.forEach((r, i) => {
+    r.position = i > 0 && r.total === rows[i - 1].total ? rows[i - 1].position : i + 1;
+  });
+  return rows;
+}
+
+/**
+ * Dos rankings independientes:
+ * - groups: puntos de pronósticos de la fase de grupos + ajuste manual.
+ * - finals: puntos de pronósticos de eliminatorias + premios.
+ */
+export async function getRankings(): Promise<Rankings> {
   const [users, finishedMatches, settings] = await Promise.all([
     prisma.user.findMany({ include: { predictions: true, awardPrediction: true } }),
     prisma.match.findMany({
@@ -28,22 +46,37 @@ export async function getLeaderboard(): Promise<LeaderboardRow[]> {
   const actualKeeper = settingMap.get("bestKeeper") ?? "";
   const actualChampion = settingMap.get("champion") ?? "";
   const actualRunnerUp = settingMap.get("runnerUp") ?? "";
-  // goleador y arquero solo suman cuando la final ya se jugó
   const final = resultByMatch.get(104);
   const tournamentFinished = final?.homeScore != null && final?.awayScore != null;
 
-  const rows = users.map((u) => {
-    let matchPts = 0;
-    let exacts = 0;
-    let outcomes = 0;
+  const groups: RankRow[] = [];
+  const finals: RankRow[] = [];
+
+  for (const u of users) {
+    let groupPts = 0,
+      groupExacts = 0,
+      groupOutcomes = 0;
+    let koPts = 0,
+      koExacts = 0,
+      koOutcomes = 0;
+
     for (const p of u.predictions) {
       const m = resultByMatch.get(p.matchId);
       if (!m) continue;
       const pts = matchPoints(p, { homeScore: m.homeScore!, awayScore: m.awayScore! });
-      matchPts += pts;
-      if (pts === POINTS.exact) exacts++;
-      else if (pts === POINTS.outcome) outcomes++;
+      const isGroup = m.stage === "GROUP";
+      if (isGroup) {
+        groupPts += pts;
+        if (pts === POINTS.exact) groupExacts++;
+        else if (pts === POINTS.outcome) groupOutcomes++;
+      } else {
+        koPts += pts;
+        if (pts === POINTS.exact) koExacts++;
+        else if (pts === POINTS.outcome) koOutcomes++;
+      }
     }
+
+    // Premios (cuentan en la pestaña de eliminatorias)
     let awardPts = 0;
     if (
       tournamentFinished &&
@@ -67,28 +100,25 @@ export async function getLeaderboard(): Promise<LeaderboardRow[]> {
     if (actualRunnerUp && u.awardPrediction?.runnerUp === actualRunnerUp) {
       awardPts += POINTS.runnerUp;
     }
-    return {
-      id: u.id,
-      name: u.displayName,
-      badge: u.badge,
-      position: 0, // se asigna abajo
-      total: matchPts + awardPts + u.pointsAdjustment,
-      exacts,
-      outcomes,
-      awardPts,
+
+    const base = { id: u.id, name: u.displayName, badge: u.badge, position: 0 };
+    groups.push({
+      ...base,
+      total: groupPts + u.pointsAdjustment,
+      exacts: groupExacts,
+      outcomes: groupOutcomes,
+      awardPts: 0,
       adjustment: u.pointsAdjustment,
-    };
-  });
+    });
+    finals.push({
+      ...base,
+      total: koPts + awardPts,
+      exacts: koExacts,
+      outcomes: koOutcomes,
+      awardPts,
+      adjustment: 0,
+    });
+  }
 
-  rows.sort(
-    (a, b) => b.total - a.total || b.exacts - a.exacts || a.name.localeCompare(b.name)
-  );
-
-  // ranking de competición estándar: los empatados (mismos puntos) comparten
-  // posición y la siguiente posición salta (1, 1, 3, 4...)
-  rows.forEach((r, i) => {
-    r.position = i > 0 && r.total === rows[i - 1].total ? rows[i - 1].position : i + 1;
-  });
-
-  return rows;
+  return { groups: assignPositions(groups), finals: assignPositions(finals) };
 }

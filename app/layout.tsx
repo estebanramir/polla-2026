@@ -76,7 +76,7 @@ export default async function RootLayout({
         </header>
         <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-8">{children}</main>
         <footer className="border-t border-[var(--line)] py-6 text-center text-xs text-[var(--muted)]">
-          La Polla del Mundial Ramirez Rubio Espinosa · Exacto 5 pts · Ganador 2 pts · Goleador y arquero 10 pts
+          La Polla del Mundial Ramirez Rubio Espinosa · Marcador exacto y aciertos suman puntos
         </footer>
       </body>
     </html>
