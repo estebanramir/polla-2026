@@ -90,14 +90,10 @@ export async function syncResults({ force = false, daysAhead = 4 } = {}) {
 
   if (!candidates.length) return { skipped: false, updated: 0, kickoffFixes: 0 };
 
-  // desde el partido pendiente más viejo (máx. 7 días atrás) hasta daysAhead
-  const oldestPending = candidates.find((m) => m.kickoff <= now)?.kickoff;
-  const fromDate = new Date(
-    Math.max(
-      Math.min(oldestPending?.getTime() ?? now.getTime(), now.getTime()),
-      now.getTime() - 7 * 24 * 3600 * 1000
-    ) - 24 * 3600 * 1000
-  );
+  // Desde el partido ya iniciado más viejo que aún no tiene resultado, para
+  // poder rellenar también partidos atrasados (sin tope de 7 días).
+  const oldestPending = candidates.find((m) => m.kickoff <= now)?.kickoff ?? now;
+  const fromDate = new Date(oldestPending.getTime() - 24 * 3600 * 1000);
   const from = fmtDate(fromDate);
   const to = fmtDate(new Date(now.getTime() + daysAhead * 24 * 3600 * 1000));
   const res = await fetch(`${ESPN_URL}?dates=${from}-${to}&limit=300`, {
