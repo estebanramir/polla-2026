@@ -1,13 +1,13 @@
 import { prisma } from "./prisma";
 import { updateBracket } from "./knockout";
+import { ESPN_BASE, NAME_TO_CODE, teamCode as teamCodeFromTeam } from "./espn";
 
 /**
  * Sincroniza resultados reales desde el scoreboard público de ESPN
  * (las abreviaturas de ESPN coinciden con los códigos FIFA del seed).
  */
 
-const ESPN_BASE =
-  "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world";
+export { NAME_TO_CODE };
 const ESPN_URL = `${ESPN_BASE}/scoreboard`;
 
 /**
@@ -55,24 +55,6 @@ const FINISHED_STATUSES = new Set([
   "STATUS_FINAL_PEN",
 ]);
 
-// Respaldo por nombre en inglés por si alguna abreviatura difiere
-export const NAME_TO_CODE: Record<string, string> = {
-  mexico: "MEX", "south africa": "RSA", "south korea": "KOR", czechia: "CZE",
-  "czech republic": "CZE", canada: "CAN", "bosnia and herzegovina": "BIH",
-  qatar: "QAT", switzerland: "SUI", brazil: "BRA", morocco: "MAR", haiti: "HAI",
-  scotland: "SCO", "united states": "USA", usa: "USA", paraguay: "PAR",
-  australia: "AUS", turkey: "TUR", turkiye: "TUR", germany: "GER",
-  curacao: "CUW", "ivory coast": "CIV", "cote d'ivoire": "CIV", ecuador: "ECU",
-  netherlands: "NED", japan: "JPN", sweden: "SWE", tunisia: "TUN",
-  belgium: "BEL", egypt: "EGY", iran: "IRN", "new zealand": "NZL",
-  spain: "ESP", "cape verde": "CPV", "cabo verde": "CPV", "saudi arabia": "KSA",
-  uruguay: "URU", france: "FRA", senegal: "SEN", iraq: "IRQ", norway: "NOR",
-  argentina: "ARG", algeria: "ALG", austria: "AUT", jordan: "JOR",
-  portugal: "POR", "dr congo": "COD", "democratic republic of the congo": "COD",
-  uzbekistan: "UZB", colombia: "COL", england: "ENG", croatia: "CRO",
-  ghana: "GHA", panama: "PAN",
-};
-
 type EspnCompetitor = {
   homeAway: "home" | "away";
   score?: string;
@@ -92,12 +74,8 @@ type EspnEvent = {
   }[];
 };
 
-function teamCode(c: EspnCompetitor, validCodes: Set<string>): string | null {
-  const abbr = c.team.abbreviation?.toUpperCase();
-  if (abbr && validCodes.has(abbr)) return abbr;
-  const byName = NAME_TO_CODE[(c.team.displayName ?? "").toLowerCase()];
-  return byName && validCodes.has(byName) ? byName : null;
-}
+const teamCode = (c: EspnCompetitor, validCodes: Set<string>) =>
+  teamCodeFromTeam(c.team, validCodes);
 
 function fmtDate(d: Date) {
   return d.toISOString().slice(0, 10).replace(/-/g, "");

@@ -1,5 +1,9 @@
 import { prisma } from "./prisma";
 import { computeStandings, type StandingRow } from "./standings";
+import { fetchKnockoutFixtures } from "./espn";
+
+const third = (rows: StandingRow[], teamId: string) =>
+  rows.find((r) => r.teamId === teamId);
 
 /** Tabla de posiciones de un grupo a partir de resultados reales. */
 export async function groupStandings(group: string): Promise<StandingRow[]> {
@@ -83,17 +87,65 @@ export async function updateBracket() {
     const koMatches = await prisma.match.findMany({ where: { stage: "R32" } });
     const thirdSlots = koMatches
       .filter((m) => m.awaySlot?.startsWith("3:"))
-      .map((m) => ({ matchId: m.id, allowed: m.awaySlot!.slice(2).split("") }));
+      .map((m) => ({
+        matchId: m.id,
+        homeSlot: m.homeSlot!, // el rival (1°/2° de grupo) ya resuelto
+        allowed: m.awaySlot!.slice(2).split(""),
+      }));
 
-    const assignment = assignThirds(
-      thirdSlots,
-      best8.map((t) => t.group)
-    );
-    if (assignment) {
-      for (const [slotIdx, thirdIdx] of assignment.entries()) {
-        const slot = thirdSlots[slotIdx];
-        const third = best8[thirdIdx];
-        slotTeam.set(`3@${slot.matchId}`, third.teamId);
+    // Preferimos la asignación REAL de ESPN (tabla oficial de la FIFA): para cada
+    // partido, el rival del tercero es un 1°/2° de grupo ya conocido; buscamos ese
+    // equipo en los cruces de ESPN y el otro equipo es el tercero correcto.
+    let assignedFromEspn = false;
+    try {
+      const validCodes = new Set(best8.map((t) => t.teamId));
+      const allCodes = new Set(
+        (await prisma.team.findMany({ select: { id: true } })).map((t) => t.id)
+      );
+      // Solo la ventana de 16avos (no la última fecha de grupos, que comparte equipos).
+      const r32Kickoffs = koMatches.map((m) => m.kickoff.getTime());
+      const from = new Date(Math.min(...r32Kickoffs) - 6 * 3600 * 1000);
+      const to = new Date(Math.max(...r32Kickoffs) + 24 * 3600 * 1000);
+      const fixtures = await fetchKnockoutFixtures(allCodes, from, to);
+
+      let allMatched = true;
+      const pending = new Map<number, string>(); // matchId -> thirdId
+      for (const slot of thirdSlots) {
+        const opp = slotTeam.get(slot.homeSlot);
+        if (!opp) {
+          allMatched = false;
+          break;
+        }
+        // el rival juega un solo partido de 16avos; tomamos el más reciente por si acaso
+        const fx = fixtures
+          .filter((f) => f.homeCode === opp || f.awayCode === opp)
+          .sort((a, b) => b.date.getTime() - a.date.getTime())[0];
+        const thirdId = fx ? (fx.homeCode === opp ? fx.awayCode : fx.homeCode) : null;
+        if (!thirdId || !validCodes.has(thirdId) || !slot.allowed.includes(third(best8, thirdId)?.group ?? "")) {
+          allMatched = false;
+          break;
+        }
+        pending.set(slot.matchId, thirdId);
+      }
+      if (allMatched && pending.size === thirdSlots.length) {
+        for (const [matchId, thirdId] of pending) slotTeam.set(`3@${matchId}`, thirdId);
+        assignedFromEspn = true;
+      }
+    } catch {
+      // si ESPN falla, usamos el respaldo de abajo
+    }
+
+    // Respaldo: backtracking que respeta las restricciones de grupo (puede diferir
+    // de la asignación oficial, pero deja el cuadro completo si ESPN no responde).
+    if (!assignedFromEspn) {
+      const assignment = assignThirds(
+        thirdSlots,
+        best8.map((t) => t.group)
+      );
+      if (assignment) {
+        for (const [slotIdx, thirdIdx] of assignment.entries()) {
+          slotTeam.set(`3@${thirdSlots[slotIdx].matchId}`, best8[thirdIdx].teamId);
+        }
       }
     }
   }
