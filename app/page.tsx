@@ -12,6 +12,7 @@ import { MatchCard, type MatchView } from "@/components/MatchCard";
 import { GroupTable } from "@/components/GroupTable";
 import { ThirdPlaceTable } from "@/components/ThirdPlaceTable";
 import { SectionNav } from "@/components/SectionNav";
+import { ScrollToToday } from "@/components/ScrollToToday";
 import { NotificationsToggle } from "@/components/NotificationsToggle";
 
 export const dynamic = "force-dynamic";
@@ -220,6 +221,7 @@ export default async function HomePage({
 
       {vista === "fecha" ? (
         <div className="flex flex-col gap-10">
+          <ScrollToToday />
           {daySections.map((section) => (
             <section key={section.key} id={section.id} className="scroll-mt-28">
               <h2 className="font-display mb-1 text-2xl text-[var(--gold)]">
