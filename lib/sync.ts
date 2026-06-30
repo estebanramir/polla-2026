@@ -11,16 +11,14 @@ export { NAME_TO_CODE };
 const ESPN_URL = `${ESPN_BASE}/scoreboard`;
 
 /**
- * Marcadores por tiempos de un partido de eliminatorias, leídos del detalle de
- * ESPN (linescores = [1ºT, 2ºT, alargue1, alargue2, penales]):
- * - reg = marcador a los 90'+adición (suma de los 2 primeros tiempos) → puntúa la polla.
- * - final = marcador tras los 120' (suma de hasta 4 tiempos, SIN penales).
+ * Marcador a los 90'+adición (suma de los 2 primeros tiempos de los linescores
+ * de ESPN). Se usa solo el reglamentario porque el desglose del alargue no es
+ * siempre fiable; el marcador final de los 120' se toma del score del scoreboard.
  * Devuelve null si no se puede determinar con confianza.
  */
-async function fetchKnockoutScores(eventId: string): Promise<{
-  reg: { home: number; away: number };
-  final: { home: number; away: number };
-} | null> {
+async function fetchRegulationScore(
+  eventId: string
+): Promise<{ home: number; away: number } | null> {
   try {
     const res = await fetch(`${ESPN_BASE}/summary?event=${eventId}`, {
       cache: "no-store",
@@ -30,28 +28,21 @@ async function fetchKnockoutScores(eventId: string): Promise<{
     const data = await res.json();
     const comps = data?.header?.competitions?.[0]?.competitors;
     if (!Array.isArray(comps) || comps.length !== 2) return null;
-    const sums = (c: { linescores?: { displayValue?: string }[] }) => {
+    const reg = (c: { linescores?: { displayValue?: string }[] }) => {
       const ls = c.linescores;
       if (!Array.isArray(ls) || ls.length < 2) return null;
-      const nums = ls.map((x) => Number(x?.displayValue));
-      if (nums.slice(0, Math.min(nums.length, 4)).some((n) => !Number.isInteger(n))) {
-        return null;
-      }
-      const reg = nums[0] + nums[1];
-      // tras los 120' = hasta 4 tiempos; el 5º (penales) se excluye
-      const final = nums.slice(0, Math.min(nums.length, 4)).reduce((s, n) => s + n, 0);
-      return { reg, final };
+      const h1 = Number(ls[0]?.displayValue);
+      const h2 = Number(ls[1]?.displayValue);
+      if (!Number.isInteger(h1) || !Number.isInteger(h2)) return null;
+      return h1 + h2;
     };
     const homeC = comps.find((c) => c.homeAway === "home");
     const awayC = comps.find((c) => c.homeAway === "away");
     if (!homeC || !awayC) return null;
-    const h = sums(homeC);
-    const a = sums(awayC);
-    if (!h || !a) return null;
-    return {
-      reg: { home: h.reg, away: a.reg },
-      final: { home: h.final, away: a.final },
-    };
+    const home = reg(homeC);
+    const away = reg(awayC);
+    if (home == null || away == null) return null;
+    return { home, away };
   } catch {
     return null;
   }
@@ -184,26 +175,36 @@ export async function syncResults({ force = false, daysAhead = 4 } = {}) {
     const advancingCode = advancingComp ? teamCode(advancingComp, validCodes) : null;
 
     if (isKnockout && wentBeyond90) {
-      // Fue a alargue/penales: el marcador del scoreboard incluye la prórroga.
-      // La polla puntúa con los 90' (suma de los 2 primeros tiempos) y da bono por
-      // acertar el marcador final de los 120'. Ambos se leen del detalle. Automático.
-      const scores = await fetchKnockoutScores(event.id);
+      // Fue a alargue/penales. La polla puntúa con los 90' y da bono por acertar
+      // el marcador final de los 120'. El FINAL se toma del score del scoreboard
+      // (confiable); el 90' de los linescores (primeros 2 tiempos). Automático.
       const winnerId = advancingCode ?? match.winnerId ?? null;
-      if (scores) {
-        const { reg, final } = scores;
+      const fHome = Number(flipped ? awayC.score : homeC.score); // final 120' (sin penales)
+      const fAway = Number(flipped ? homeC.score : awayC.score);
+      const finalOk = Number.isInteger(fHome) && Number.isInteger(fAway);
+
+      if (finalOk) {
+        const reg = await fetchRegulationScore(event.id);
+        let rHome = reg ? (flipped ? reg.away : reg.home) : fHome;
+        let rAway = reg ? (flipped ? reg.home : reg.away) : fAway;
+        // sanidad: a los 90' no se puede tener más goles que al final (no se desmarca)
+        if (rHome > fHome || rAway > fAway) {
+          rHome = fHome;
+          rAway = fAway;
+        }
         await prisma.match.update({
           where: { id: match.id },
           data: {
-            homeScore: flipped ? reg.away : reg.home,
-            awayScore: flipped ? reg.home : reg.away,
-            finalHomeScore: flipped ? final.away : final.home,
-            finalAwayScore: flipped ? final.home : final.away,
+            homeScore: rHome,
+            awayScore: rAway,
+            finalHomeScore: fHome,
+            finalAwayScore: fAway,
             winnerId,
           },
         });
         updated++;
       } else if (winnerId && winnerId !== match.winnerId) {
-        // si no se pudo leer el marcador de los 90', al menos hacer avanzar al ganador
+        // si no se pudo leer el marcador, al menos hacer avanzar al ganador
         await prisma.match.update({
           where: { id: match.id },
           data: { winnerId },
