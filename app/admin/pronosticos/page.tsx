@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { matchPoints, POINTS } from "@/lib/scoring";
+import { predictionPoints, POINTS } from "@/lib/scoring";
 import { STAGE_LABELS } from "@/lib/labels";
 import { Flag } from "@/components/Flag";
 import { LocalTime } from "@/components/LocalTime";
@@ -41,7 +41,9 @@ export default async function AdminPronosticosPage() {
   const playableMatches = matches.filter((m) => m.homeTeamId && m.awayTeamId);
 
   function cellColor(pts: number | null) {
-    if (pts === POINTS.exact) return "bg-[rgba(47,224,124,0.18)] text-[var(--grass)]";
+    if (pts == null) return "";
+    if (pts >= POINTS.exact) return "bg-[rgba(47,224,124,0.18)] text-[var(--grass)]";
+    if (pts === POINTS.knockoutFinal) return "bg-[rgba(47,224,124,0.10)] text-[var(--grass)]";
     if (pts === POINTS.outcome) return "bg-[rgba(242,193,78,0.15)] text-[var(--gold)]";
     if (pts === 0) return "text-[var(--muted)]";
     return "";
@@ -153,7 +155,7 @@ export default async function AdminPronosticosPage() {
                   </td>
                   {users.map((u) => {
                     const pred = predIndex.get(u.id)?.get(m.id) ?? null;
-                    const pts = pred && result ? matchPoints(pred, result) : null;
+                    const pts = pred && result ? predictionPoints(pred, m) : null;
                     return (
                       <td key={u.id} className="p-0">
                         <AdminPredCell

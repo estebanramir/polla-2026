@@ -62,8 +62,11 @@ model Match {
   // etiquetas para slots de eliminatorias aún sin definir, ej. "1A", "2B", "3C/E/F/H/I", "W89"
   homeSlot    String?
   awaySlot    String?
-  homeScore   Int?
+  homeScore   Int? // marcador a los 90'+adición (con esto se puntúa)
   awayScore   Int?
+  // marcador final tras alargue (120'), sin penales; solo eliminatorias con prórroga
+  finalHomeScore Int?
+  finalAwayScore Int?
   // ganador en eliminatorias cuando hay penales (el marcador puede ser empate)
   winnerId    String?
   predictions Prediction[]

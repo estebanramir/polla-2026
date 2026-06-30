@@ -11,14 +11,16 @@ export { NAME_TO_CODE };
 const ESPN_URL = `${ESPN_BASE}/scoreboard`;
 
 /**
- * Marcador a los 90'+adición de un partido (suma de los dos primeros tiempos),
- * leído del detalle de ESPN. Sirve para eliminatorias que fueron a alargue o
- * penales, donde el marcador del scoreboard incluye la prórroga.
+ * Marcadores por tiempos de un partido de eliminatorias, leídos del detalle de
+ * ESPN (linescores = [1ºT, 2ºT, alargue1, alargue2, penales]):
+ * - reg = marcador a los 90'+adición (suma de los 2 primeros tiempos) → puntúa la polla.
+ * - final = marcador tras los 120' (suma de hasta 4 tiempos, SIN penales).
  * Devuelve null si no se puede determinar con confianza.
  */
-async function fetchRegulationScore(
-  eventId: string
-): Promise<{ home: number; away: number } | null> {
+async function fetchKnockoutScores(eventId: string): Promise<{
+  reg: { home: number; away: number };
+  final: { home: number; away: number };
+} | null> {
   try {
     const res = await fetch(`${ESPN_BASE}/summary?event=${eventId}`, {
       cache: "no-store",
@@ -28,21 +30,28 @@ async function fetchRegulationScore(
     const data = await res.json();
     const comps = data?.header?.competitions?.[0]?.competitors;
     if (!Array.isArray(comps) || comps.length !== 2) return null;
-    const reg = (c: { homeAway: string; linescores?: { displayValue?: string }[] }) => {
+    const sums = (c: { linescores?: { displayValue?: string }[] }) => {
       const ls = c.linescores;
       if (!Array.isArray(ls) || ls.length < 2) return null;
-      const h1 = Number(ls[0]?.displayValue);
-      const h2 = Number(ls[1]?.displayValue);
-      if (!Number.isInteger(h1) || !Number.isInteger(h2)) return null;
-      return h1 + h2;
+      const nums = ls.map((x) => Number(x?.displayValue));
+      if (nums.slice(0, Math.min(nums.length, 4)).some((n) => !Number.isInteger(n))) {
+        return null;
+      }
+      const reg = nums[0] + nums[1];
+      // tras los 120' = hasta 4 tiempos; el 5º (penales) se excluye
+      const final = nums.slice(0, Math.min(nums.length, 4)).reduce((s, n) => s + n, 0);
+      return { reg, final };
     };
     const homeC = comps.find((c) => c.homeAway === "home");
     const awayC = comps.find((c) => c.homeAway === "away");
     if (!homeC || !awayC) return null;
-    const home = reg(homeC);
-    const away = reg(awayC);
-    if (home == null || away == null) return null;
-    return { home, away };
+    const h = sums(homeC);
+    const a = sums(awayC);
+    if (!h || !a) return null;
+    return {
+      reg: { home: h.reg, away: a.reg },
+      final: { home: h.final, away: a.final },
+    };
   } catch {
     return null;
   }
@@ -176,16 +185,21 @@ export async function syncResults({ force = false, daysAhead = 4 } = {}) {
 
     if (isKnockout && wentBeyond90) {
       // Fue a alargue/penales: el marcador del scoreboard incluye la prórroga.
-      // La polla usa el marcador de los 90'+adición = suma de los dos primeros
-      // tiempos, que se lee del detalle del partido. Todo automático.
-      const reg = await fetchRegulationScore(event.id);
+      // La polla puntúa con los 90' (suma de los 2 primeros tiempos) y da bono por
+      // acertar el marcador final de los 120'. Ambos se leen del detalle. Automático.
+      const scores = await fetchKnockoutScores(event.id);
       const winnerId = advancingCode ?? match.winnerId ?? null;
-      if (reg) {
-        const hs = flipped ? reg.away : reg.home;
-        const as = flipped ? reg.home : reg.away;
+      if (scores) {
+        const { reg, final } = scores;
         await prisma.match.update({
           where: { id: match.id },
-          data: { homeScore: hs, awayScore: as, winnerId },
+          data: {
+            homeScore: flipped ? reg.away : reg.home,
+            awayScore: flipped ? reg.home : reg.away,
+            finalHomeScore: flipped ? final.away : final.home,
+            finalAwayScore: flipped ? final.home : final.away,
+            winnerId,
+          },
         });
         updated++;
       } else if (winnerId && winnerId !== match.winnerId) {
@@ -210,7 +224,13 @@ export async function syncResults({ force = false, daysAhead = 4 } = {}) {
 
     await prisma.match.update({
       where: { id: match.id },
-      data: { homeScore: hs, awayScore: as, winnerId },
+      data: {
+        homeScore: hs,
+        awayScore: as,
+        // sin alargue → el marcador final coincide con el de los 90'
+        ...(isKnockout ? { finalHomeScore: hs, finalAwayScore: as } : {}),
+        winnerId,
+      },
     });
     updated++;
   }

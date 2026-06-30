@@ -1,23 +1,22 @@
-"use client";
-
-import { useState } from "react";
 import Link from "next/link";
 import type { RankRow } from "@/lib/leaderboard";
 
 const medal = ["🥇", "🥈", "🥉"];
 
+export type Fase = "grupos" | "finales";
+
 function Table({
   rows,
   currentId,
+  fase,
   extraLabel,
   extraValue,
-  showBadge,
 }: {
   rows: RankRow[];
   currentId: string;
+  fase: Fase;
   extraLabel: string;
   extraValue: (r: RankRow) => number;
-  showBadge: boolean;
 }) {
   return (
     <div className="card overflow-x-auto">
@@ -51,7 +50,7 @@ function Table({
                 <td className="px-3 py-3 font-semibold sm:px-4">
                   <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <Link
-                      href={`/jugador/${r.id}`}
+                      href={`/jugador/${r.id}?fase=${fase}`}
                       className="hover:text-[var(--grass)] hover:underline"
                     >
                       {r.name}
@@ -59,13 +58,15 @@ function Table({
                     {r.id === currentId && (
                       <span className="text-xs text-[var(--grass)]">(tú)</span>
                     )}
-                    {showBadge && r.badge && (
+                    {fase === "grupos" && r.badge && (
                       <span className="chip chip-gold">{r.badge}</span>
                     )}
                   </span>
                   <div className="text-[11px] font-normal text-[var(--muted)] sm:hidden">
                     {r.exacts} exactos · {r.outcomes} aciertos
-                    {extra !== 0 ? ` · ${extra > 0 ? "+" : ""}${extra} ${extraLabel.toLowerCase()}` : ""}
+                    {extra !== 0
+                      ? ` · ${extra > 0 ? "+" : ""}${extra} ${extraLabel.toLowerCase()}`
+                      : ""}
                   </div>
                 </td>
                 <td className="hidden px-4 py-3 text-center tabular-nums sm:table-cell">
@@ -93,57 +94,58 @@ export function RankingTabs({
   groups,
   finals,
   currentId,
+  fase,
 }: {
   groups: RankRow[];
   finals: RankRow[];
   currentId: string;
+  fase: Fase;
 }) {
-  const [tab, setTab] = useState<"grupos" | "finales">("grupos");
+  const tabs: [Fase, string][] = [
+    ["finales", "Eliminatorias"],
+    ["grupos", "Fase de grupos"],
+  ];
 
   return (
     <div>
       <div className="mb-4 inline-flex overflow-hidden rounded-full border border-[var(--line)]">
-        {(
-          [
-            ["grupos", "Fase de grupos"],
-            ["finales", "Eliminatorias"],
-          ] as const
-        ).map(([key, label]) => (
-          <button
+        {tabs.map(([key, label]) => (
+          <Link
             key={key}
-            onClick={() => setTab(key)}
+            href={`/tabla?fase=${key}`}
+            scroll={false}
             className={`px-4 py-1.5 text-xs font-semibold ${
-              tab === key
+              fase === key
                 ? "bg-[var(--grass)] text-[#06150d]"
                 : "text-[var(--muted)] hover:text-[var(--cream)]"
             }`}
           >
             {label}
-          </button>
+          </Link>
         ))}
       </div>
 
       <p className="mb-4 text-sm text-[var(--muted)]">
-        {tab === "grupos"
+        {fase === "grupos"
           ? "Puntos de los pronósticos de la fase de grupos (más ajustes)."
-          : "Puntos de los pronósticos de eliminatorias más los premios (campeón, subcampeón, goleador, arquero)."}
+          : "Pronósticos de eliminatorias (5 exacto · 2 resultado · +3 marcador final tras alargue) más los premios."}
       </p>
 
-      {tab === "grupos" ? (
+      {fase === "grupos" ? (
         <Table
           rows={groups}
           currentId={currentId}
+          fase="grupos"
           extraLabel="Ajuste"
           extraValue={(r) => r.adjustment}
-          showBadge
         />
       ) : (
         <Table
           rows={finals}
           currentId={currentId}
+          fase="finales"
           extraLabel="Premios"
           extraValue={(r) => r.awardPts}
-          showBadge={false}
         />
       )}
     </div>

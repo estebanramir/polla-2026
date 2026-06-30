@@ -1,5 +1,5 @@
 import { prisma } from "./prisma";
-import { matchPoints, normalizeName, POINTS } from "./scoring";
+import { matchPoints, knockoutFinalBonus, normalizeName, POINTS } from "./scoring";
 
 export type RankRow = {
   id: string;
@@ -63,14 +63,19 @@ export async function getRankings(): Promise<Rankings> {
     for (const p of u.predictions) {
       const m = resultByMatch.get(p.matchId);
       if (!m) continue;
-      const pts = matchPoints(p, { homeScore: m.homeScore!, awayScore: m.awayScore! });
-      const isGroup = m.stage === "GROUP";
-      if (isGroup) {
+      const reg = { homeScore: m.homeScore!, awayScore: m.awayScore! };
+      const pts = matchPoints(p, reg);
+      if (m.stage === "GROUP") {
         groupPts += pts;
         if (pts === POINTS.exact) groupExacts++;
         else if (pts === POINTS.outcome) groupOutcomes++;
       } else {
-        koPts += pts;
+        // 90' + bono por marcador final tras alargue
+        const final =
+          m.finalHomeScore != null && m.finalAwayScore != null
+            ? { homeScore: m.finalHomeScore, awayScore: m.finalAwayScore }
+            : reg;
+        koPts += pts + knockoutFinalBonus(p, reg, final);
         if (pts === POINTS.exact) koExacts++;
         else if (pts === POINTS.outcome) koOutcomes++;
       }

@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { getRankings } from "@/lib/leaderboard";
-import { matchPoints } from "@/lib/scoring";
+import { predictionPoints } from "@/lib/scoring";
 import { STAGE_LABELS } from "@/lib/labels";
 import { Flag } from "@/components/Flag";
 import { LocalTime } from "@/components/LocalTime";
@@ -12,13 +12,17 @@ export const dynamic = "force-dynamic";
 
 export default async function JugadorPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ fase?: string }>;
 }) {
   const viewer = await getCurrentUser();
   if (!viewer) redirect("/login");
 
   const { id } = await params;
+  // pestaña del ranking de la que venimos, para volver a la misma
+  const fase = (await searchParams).fase === "grupos" ? "grupos" : "finales";
   const [player, leaderboard, settings] = await Promise.all([
     prisma.user.findUnique({
       where: { id },
@@ -61,7 +65,10 @@ export default async function JugadorPage({
 
   return (
     <div className="rise">
-      <Link href="/tabla" className="text-sm text-[var(--muted)] hover:text-[var(--cream)]">
+      <Link
+        href={`/tabla?fase=${fase}`}
+        className="text-sm text-[var(--muted)] hover:text-[var(--cream)]"
+      >
         ← Ranking
       </Link>
 
@@ -145,9 +152,7 @@ export default async function JugadorPage({
           {visible.map((p) => {
             const m = p.match;
             const hasResult = m.homeScore != null && m.awayScore != null;
-            const pts = hasResult
-              ? matchPoints(p, { homeScore: m.homeScore!, awayScore: m.awayScore! })
-              : null;
+            const pts = hasResult ? predictionPoints(p, m) : null;
             return (
               <div key={p.id} className="card flex items-center gap-3 p-3 text-sm">
                 <div className="flex-1">

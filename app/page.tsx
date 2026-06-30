@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { matchPoints } from "@/lib/scoring";
+import { predictionPoints } from "@/lib/scoring";
 import { STAGE_LABELS, slotLabel } from "@/lib/labels";
 import { computeStandings } from "@/lib/standings";
 import { syncResults } from "@/lib/sync";
@@ -47,7 +47,8 @@ export default async function HomePage({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
-  const vista = (await searchParams).vista === "fecha" ? "fecha" : "grupo";
+  // por defecto se muestra por fecha; "grupo" es opt-in
+  const vista = (await searchParams).vista === "grupo" ? "grupo" : "fecha";
 
   // Sincroniza resultados reales (máx. cada 10 min); si falla, la página sigue
   try {
@@ -66,7 +67,7 @@ export default async function HomePage({
     getRankings(),
     getThirdPlaceStandings(),
   ]);
-  const leaderboard = rankings.groups; // el podio del inicio usa la fase de grupos
+  const leaderboard = rankings.finals; // el podio del inicio usa eliminatorias (tab por defecto)
 
   const teamInfo = new Map(teams.map((t) => [t.id, { name: t.name, flagCode: t.flagCode }]));
   const predByMatch = new Map(predictions.map((p) => [p.matchId, p]));
@@ -93,10 +94,7 @@ export default async function HomePage({
       awayScore: m.awayScore,
       locked: m.kickoff <= now,
       prediction: pred ? { homeScore: pred.homeScore, awayScore: pred.awayScore } : null,
-      points:
-        hasResult && pred
-          ? matchPoints(pred, { homeScore: m.homeScore!, awayScore: m.awayScore! })
-          : null,
+      points: hasResult && pred ? predictionPoints(pred, m) : null,
     };
   };
 
@@ -197,7 +195,7 @@ export default async function HomePage({
       <nav className="sticky top-[57px] z-40 -mx-4 mb-8 flex items-center gap-1.5 overflow-x-auto border-b border-[var(--line)] bg-[rgba(10,20,16,0.92)] px-4 py-2.5 backdrop-blur">
         <div className="mr-2 flex shrink-0 overflow-hidden rounded-full border border-[var(--line)]">
           <Link
-            href="/"
+            href="/?vista=grupo"
             className={`px-3 py-1 text-xs font-semibold ${
               vista === "grupo"
                 ? "bg-[var(--grass)] text-[#06150d]"
@@ -207,7 +205,7 @@ export default async function HomePage({
             Por grupo
           </Link>
           <Link
-            href="/?vista=fecha#hoy"
+            href="/#hoy"
             className={`px-3 py-1 text-xs font-semibold ${
               vista === "fecha"
                 ? "bg-[var(--grass)] text-[#06150d]"

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
-import { matchPoints } from "@/lib/scoring";
+import { predictionPoints } from "@/lib/scoring";
 import { STAGE_LABELS, slotLabel } from "@/lib/labels";
 import { MatchCard, type MatchView } from "@/components/MatchCard";
 import { Flag } from "@/components/Flag";
@@ -54,10 +54,7 @@ export default async function EquipoPage({
       awayScore: m.awayScore,
       locked: m.kickoff <= now,
       prediction: pred ? { homeScore: pred.homeScore, awayScore: pred.awayScore } : null,
-      points:
-        hasResult && pred
-          ? matchPoints(pred, { homeScore: m.homeScore!, awayScore: m.awayScore! })
-          : null,
+      points: hasResult && pred ? predictionPoints(pred, m) : null,
     };
   };
 
