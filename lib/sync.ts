@@ -91,13 +91,19 @@ export async function syncResults({ force = false, daysAhead = 4 } = {}) {
     return { skipped: true, updated: 0, kickoffFixes: 0 };
   }
 
-  // Partidos sin resultado con ambos equipos definidos: candidatos a
-  // recibir marcador (si ya terminaron) o corrección de horario (si no)
+  // Candidatos a recibir/actualizar resultado (con ambos equipos definidos):
+  // - sin marcador todavía, o
+  // - eliminatoria sin marcador final aún (para registrar el resultado de los
+  //   120' una vez que termine el alargue/penales, aunque ya tenga el de 90').
   const candidates = await prisma.match.findMany({
     where: {
-      OR: [{ homeScore: null }, { awayScore: null }],
       homeTeamId: { not: null },
       awayTeamId: { not: null },
+      OR: [
+        { homeScore: null },
+        { awayScore: null },
+        { stage: { not: "GROUP" }, finalHomeScore: null },
+      ],
     },
     orderBy: { kickoff: "asc" },
   });
