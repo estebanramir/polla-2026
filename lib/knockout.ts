@@ -85,66 +85,75 @@ export async function updateBracket() {
     const best8 = thirds.slice(0, 8);
 
     const koMatches = await prisma.match.findMany({ where: { stage: "R32" } });
+    // Solo los slots de tercero que aún NO tienen equipo (freeze: no se recalcula
+    // una asignación ya hecha, así no se corrompe cuando aparecen los octavos).
     const thirdSlots = koMatches
-      .filter((m) => m.awaySlot?.startsWith("3:"))
+      .filter((m) => m.awaySlot?.startsWith("3:") && m.awayTeamId == null)
       .map((m) => ({
         matchId: m.id,
         homeSlot: m.homeSlot!, // el rival (1°/2° de grupo) ya resuelto
         allowed: m.awaySlot!.slice(2).split(""),
       }));
 
-    // Preferimos la asignación REAL de ESPN (tabla oficial de la FIFA): para cada
-    // partido, el rival del tercero es un 1°/2° de grupo ya conocido; buscamos ese
-    // equipo en los cruces de ESPN y el otro equipo es el tercero correcto.
-    let assignedFromEspn = false;
-    try {
-      const validCodes = new Set(best8.map((t) => t.teamId));
-      const allCodes = new Set(
-        (await prisma.team.findMany({ select: { id: true } })).map((t) => t.id)
-      );
-      // Solo la ventana de 16avos (no la última fecha de grupos, que comparte equipos).
-      const r32Kickoffs = koMatches.map((m) => m.kickoff.getTime());
-      const from = new Date(Math.min(...r32Kickoffs) - 6 * 3600 * 1000);
-      const to = new Date(Math.max(...r32Kickoffs) + 24 * 3600 * 1000);
-      const fixtures = await fetchKnockoutFixtures(allCodes, from, to);
+    // Solo se asignan terceros si quedan slots vacíos.
+    if (thirdSlots.length > 0) {
+      // Preferimos la asignación REAL de ESPN (tabla oficial de la FIFA): para cada
+      // partido, el rival del tercero es un 1°/2° de grupo ya conocido; buscamos ese
+      // equipo en los cruces de ESPN y el otro equipo es el tercero correcto.
+      let assignedFromEspn = false;
+      try {
+        const validCodes = new Set(best8.map((t) => t.teamId));
+        const allCodes = new Set(
+          (await prisma.team.findMany({ select: { id: true } })).map((t) => t.id)
+        );
+        // Ventana acotada SOLO a los 16avos (sin la última fecha de grupos ni los
+        // octavos, que comparten equipos y confundirían el emparejamiento).
+        const r32Kickoffs = koMatches.map((m) => m.kickoff.getTime());
+        const from = new Date(Math.min(...r32Kickoffs) - 6 * 3600 * 1000);
+        const to = new Date(Math.max(...r32Kickoffs) + 6 * 3600 * 1000);
+        const fixtures = await fetchKnockoutFixtures(allCodes, from, to);
 
-      let allMatched = true;
-      const pending = new Map<number, string>(); // matchId -> thirdId
-      for (const slot of thirdSlots) {
-        const opp = slotTeam.get(slot.homeSlot);
-        if (!opp) {
-          allMatched = false;
-          break;
+        let allMatched = true;
+        const pending = new Map<number, string>(); // matchId -> thirdId
+        for (const slot of thirdSlots) {
+          const opp = slotTeam.get(slot.homeSlot);
+          if (!opp) {
+            allMatched = false;
+            break;
+          }
+          // el rival juega un solo partido de 16avos con un mejor tercero permitido
+          const fx = fixtures.find((f) => {
+            const other =
+              f.homeCode === opp ? f.awayCode : f.awayCode === opp ? f.homeCode : null;
+            if (!other || !validCodes.has(other)) return false;
+            return slot.allowed.includes(third(best8, other)?.group ?? "");
+          });
+          const thirdId = fx ? (fx.homeCode === opp ? fx.awayCode : fx.homeCode) : null;
+          if (!thirdId) {
+            allMatched = false;
+            break;
+          }
+          pending.set(slot.matchId, thirdId);
         }
-        // el rival juega un solo partido de 16avos; tomamos el más reciente por si acaso
-        const fx = fixtures
-          .filter((f) => f.homeCode === opp || f.awayCode === opp)
-          .sort((a, b) => b.date.getTime() - a.date.getTime())[0];
-        const thirdId = fx ? (fx.homeCode === opp ? fx.awayCode : fx.homeCode) : null;
-        if (!thirdId || !validCodes.has(thirdId) || !slot.allowed.includes(third(best8, thirdId)?.group ?? "")) {
-          allMatched = false;
-          break;
+        if (allMatched && pending.size === thirdSlots.length) {
+          for (const [matchId, thirdId] of pending) slotTeam.set(`3@${matchId}`, thirdId);
+          assignedFromEspn = true;
         }
-        pending.set(slot.matchId, thirdId);
+      } catch {
+        // si ESPN falla, usamos el respaldo de abajo
       }
-      if (allMatched && pending.size === thirdSlots.length) {
-        for (const [matchId, thirdId] of pending) slotTeam.set(`3@${matchId}`, thirdId);
-        assignedFromEspn = true;
-      }
-    } catch {
-      // si ESPN falla, usamos el respaldo de abajo
-    }
 
-    // Respaldo: backtracking que respeta las restricciones de grupo (puede diferir
-    // de la asignación oficial, pero deja el cuadro completo si ESPN no responde).
-    if (!assignedFromEspn) {
-      const assignment = assignThirds(
-        thirdSlots,
-        best8.map((t) => t.group)
-      );
-      if (assignment) {
-        for (const [slotIdx, thirdIdx] of assignment.entries()) {
-          slotTeam.set(`3@${thirdSlots[slotIdx].matchId}`, best8[thirdIdx].teamId);
+      // Respaldo: backtracking que respeta las restricciones de grupo (puede diferir
+      // de la asignación oficial, pero deja el cuadro completo si ESPN no responde).
+      if (!assignedFromEspn) {
+        const assignment = assignThirds(
+          thirdSlots,
+          best8.map((t) => t.group)
+        );
+        if (assignment) {
+          for (const [slotIdx, thirdIdx] of assignment.entries()) {
+            slotTeam.set(`3@${thirdSlots[slotIdx].matchId}`, best8[thirdIdx].teamId);
+          }
         }
       }
     }
@@ -169,17 +178,19 @@ export async function updateBracket() {
     }
   }
 
-  // Aplicar slots resueltos
+  // Aplicar slots resueltos. IMPORTANTE: solo se llena un equipo si el slot está
+  // vacío; una vez asignado un equipo NUNCA se sobrescribe (un cruce ya definido o
+  // jugado no debe cambiar). Así el cuadro no se corrompe al re-ejecutarse.
   for (const m of allMatches) {
     if (m.stage === "GROUP") continue;
     const updates: { homeTeamId?: string; awayTeamId?: string } = {};
-    if (m.homeSlot) {
+    if (m.homeSlot && m.homeTeamId == null) {
       const t = resolveSlot(m.homeSlot, m.id, slotTeam);
-      if (t && t !== m.homeTeamId) updates.homeTeamId = t;
+      if (t) updates.homeTeamId = t;
     }
-    if (m.awaySlot) {
+    if (m.awaySlot && m.awayTeamId == null) {
       const t = resolveSlot(m.awaySlot, m.id, slotTeam);
-      if (t && t !== m.awayTeamId) updates.awayTeamId = t;
+      if (t) updates.awayTeamId = t;
     }
     if (Object.keys(updates).length) {
       await prisma.match.update({ where: { id: m.id }, data: updates });
